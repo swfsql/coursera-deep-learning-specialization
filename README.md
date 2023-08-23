@@ -1,5 +1,8 @@
 ### Deep Learning Specialization on Coursera (offered by deeplearning.ai)
 
+Completed: 
+- C1W1~3
+
 This repo is the progress of me learning Machine Learning thanks to the video lectures made by Andrew Ng and some other rsources.  
 This is a fork from [this](https://github.com/amanchadha/coursera-deep-learning-specialization/tree/d968708a5318457acdea8f61d6acd4d1db86833f). The parent repo contains more information, references and content, so if you are studying ML I recommend checking it out.
 
