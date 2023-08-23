@@ -83,7 +83,8 @@ pub mod _3 {
 
 /// C01W03PA01 Part 4 - Neural Network Model.
 pub mod _4 {
-    use crate::helpers::_dfdx::*;
+    #[allow(unused_imports)]
+    use crate::helpers::{Approx, _dfdx::*};
 
     // Note: the python code uses different parameter values for each example,
     // and I originally used the same values as the python code and verified
@@ -229,17 +230,32 @@ pub mod _4 {
         }
 
         #[test]
-        #[allow(clippy::excessive_precision)]
         fn test_cache() {
             let dev = device();
             let x = example_x(&dev);
             let model = example_model(&dev);
             let cache = model.forward(x);
 
-            assert_eq!(cache.z1.mean::<Rank0, _>().array(), 0.0025779027);
-            assert_eq!(cache.a1.mean::<Rank0, _>().array(), 0.0025471698);
-            assert_eq!(cache.z2.mean::<Rank0, _>().array(), 0.0035655606);
-            assert_eq!(cache.a2.mean::<Rank0, _>().array(), 0.50089145);
+            assert!(cache
+                .z1
+                .mean::<Rank0, _>()
+                .array()
+                .approx(0.0025779027, (1e-8, 0)));
+            assert!(cache
+                .a1
+                .mean::<Rank0, _>()
+                .array()
+                .approx(0.0025471698, (1e-8, 0)));
+            assert!(cache
+                .z2
+                .mean::<Rank0, _>()
+                .array()
+                .approx(0.0035655606, (1e-8, 0)));
+            assert!(cache
+                .a2
+                .mean::<Rank0, _>()
+                .array()
+                .approx(0.50089145, (1e-7, 0)));
         }
 
         impl<const L1LEN: usize, const L2LEN: usize, const SETLEN: usize> Cache<L1LEN, L2LEN, SETLEN> {
@@ -250,7 +266,7 @@ pub mod _4 {
                 let l3 = (self.a2.clone().negate() + 1.).ln();
                 let l = (l1 + l2 * l3).negate();
 
-                // cost function J = 1/m sum (L) -> ŷ
+                // cost function J = 1/m sum (L)
                 let j = l.sum::<Rank0, _>() / (SETLEN as f32);
                 j.array()
             }
@@ -278,7 +294,6 @@ pub mod _4 {
             }
         }
 
-        #[allow(clippy::excessive_precision)]
         #[test]
         fn test_cost() {
             let dev = device();
@@ -396,7 +411,6 @@ pub mod _4 {
             }
         }
 
-        #[allow(clippy::excessive_precision)]
         #[test]
         fn test_backward() {
             let dev = device();
@@ -406,29 +420,29 @@ pub mod _4 {
             let cache = model.clone().forward(x.clone());
             let grads = model.backward::<3>(cache, x, y);
 
-            assert_eq!(
-                grads.dw1.array(),
+            assert!(grads.dw1.array().approx(
                 [
                     [0.0029611567, -0.0073388093],
                     [0.011364542, -0.028199548],
                     [-0.0045674066, 0.011302374],
                     [-0.012589335, 0.031008393]
-                ]
-            );
-            assert_eq!(
-                grads.db1.array(),
+                ],
+                (1e-7, 0)
+            ),);
+            assert!(grads.db1.array().approx(
                 [
                     [0.0017263684],
                     [0.006616226],
                     [-0.0026577536],
                     [-0.007254278]
-                ]
-            );
-            assert_eq!(
-                grads.dw2.array(),
-                [[0.01364471, 0.0286189, -0.0075288084, -0.037893888]]
-            );
-            assert_eq!(grads.db2.array(), [[-0.16577528]]);
+                ],
+                (1e-7, 0)
+            ));
+            assert!(grads.dw2.array().approx(
+                [[0.01364471, 0.0286189, -0.0075288084, -0.037893888]],
+                (1e-7, 0)
+            ));
+            assert!(grads.db2.array().approx([[-0.16577528]], (1e-8, 0)));
         }
 
         impl<const XLEN: usize, const L1LEN: usize, const L2LEN: usize> Model<XLEN, L1LEN, L2LEN> {
@@ -446,7 +460,6 @@ pub mod _4 {
         }
 
         #[test]
-        #[allow(clippy::excessive_precision)]
         fn test_update() {
             let dev = device();
             let x = example_x(&dev);
@@ -456,29 +469,29 @@ pub mod _4 {
             let grads = model.clone().backward(cache, x, y);
             model = model.update(grads, 1.2);
 
-            assert_eq!(
-                model.w1.array(),
+            assert!(model.w1.array().approx(
                 [
                     [-0.009703778, 0.025708672],
                     [-0.03675537, 0.06521067],
                     [-0.011440813, -0.0310883],
                     [0.024461564, -0.087392285]
-                ]
-            );
-            assert_eq!(
-                model.b1.array(),
+                ],
+                (1e-8, 0)
+            ),);
+            assert!(model.b1.array().approx(
                 [
                     [-0.0020725399],
                     [-0.007931316],
                     [0.0031899095],
                     [0.008702588]
-                ]
-            );
-            assert_eq!(
-                model.w2.array(),
-                [[-0.026805554, -0.07453275, 0.02510668, 0.08987522]]
-            );
-            assert_eq!(model.b2.array(), [[0.19902185]]);
+                ],
+                (1e-8, 0)
+            ),);
+            assert!(model.w2.array().approx(
+                [[-0.026805554, -0.07453275, 0.02510668, 0.08987522]],
+                (1e-7, 0)
+            ),);
+            assert!(model.b2.array().approx([[0.19902185]], (1e-8, 0)),);
         }
     }
     pub use _3::{Cache, Gradient};
@@ -510,7 +523,6 @@ pub mod _4 {
         }
 
         #[test]
-        #[allow(clippy::excessive_precision)]
         fn test_nn_model() {
             let dev = device();
             let x = example_x(&dev);
@@ -518,24 +530,24 @@ pub mod _4 {
             let mut model = example_model(&dev);
             model = model.optimize(x, y, 10_000, 1.02, 1000);
 
-            assert_eq!(
-                model.w1.array(),
+            assert!(model.w1.array().approx(
                 [
                     [-0.63768107, 1.1865728],
                     [-0.74364954, 1.3640525],
                     [0.61709785, -1.1710562],
                     [0.7531452, -1.3976556]
-                ]
-            );
-            assert_eq!(
-                model.b1.array(),
-                [[0.26729938], [0.3290354], [-0.26096892], [-0.34003872]]
-            );
-            assert_eq!(
-                model.w2.array(),
-                [[-2.323175, -3.111068, 2.2466047, 3.262285]],
-            );
-            assert_eq!(model.b2.array(), [[0.18929027]]);
+                ],
+                (1e-6, 0)
+            ),);
+            assert!(model.b1.array().approx(
+                [[0.26729938], [0.3290354], [-0.26096892], [-0.34003872]],
+                (1e-6, 0)
+            ),);
+            assert!(model
+                .w2
+                .array()
+                .approx([[-2.323175, -3.111068, 2.2466047, 3.262285]], (1e-6, 0)),);
+            assert!(model.b2.array().approx([[0.18929027]], (1e-6, 0)),);
         }
     }
 
@@ -558,7 +570,6 @@ pub mod _4 {
         }
 
         #[test]
-        #[allow(clippy::excessive_precision)]
         fn test_prediction() {
             let dev = device();
             let x = example_x(&dev);
@@ -592,6 +603,7 @@ pub mod _4 {
         ) -> TensorF32<Rank1<L2LEN>>
         where
             YD: dfdx::dtypes::Unit,
+            YD: num_traits::cast::AsPrimitive<f32>,
         {
             (prediction - y.to_dtype::<f32>())
                 .abs()
@@ -603,7 +615,7 @@ pub mod _4 {
 
         #[test]
         fn test_planar() {
-            use crate::helpers::Aprox;
+            use crate::helpers::Approx;
 
             let dev = device();
             let x = dev.tensor(crate::c1::w3::util::X);
@@ -664,7 +676,7 @@ pub mod _4 {
 
         #[test]
         fn test_planar_various() {
-            use crate::helpers::Aprox;
+            use crate::helpers::Approx;
 
             let dev = device();
             let x = dev.tensor(crate::c1::w3::util::X);

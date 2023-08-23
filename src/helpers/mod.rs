@@ -6,7 +6,7 @@ use std::fmt::Display;
 
 use float_cmp::ApproxEq;
 
-pub trait Aprox<D>: Copy {
+pub trait Approx<D>: Copy {
     fn approx<MARGIN>(self, rhs: Self, margin: MARGIN) -> bool
     where
         D: ApproxEq,
@@ -14,7 +14,7 @@ pub trait Aprox<D>: Copy {
         <D as ApproxEq>::Margin: From<MARGIN>;
 }
 
-impl<D> Aprox<D> for D
+impl<D> Approx<D> for D
 where
     D: Copy + ApproxEq + Display,
 {
@@ -32,7 +32,7 @@ where
     }
 }
 
-impl<D, const N: usize> Aprox<D> for [D; N]
+impl<D, const N: usize> Approx<D> for [D; N]
 where
     D: Copy + ApproxEq + Display,
 {
@@ -51,7 +51,7 @@ where
     }
 }
 
-impl<D, const N: usize, const M: usize> Aprox<D> for [[D; M]; N]
+impl<D, const N: usize, const M: usize> Approx<D> for [[D; M]; N]
 where
     D: Copy + ApproxEq + Display,
 {
@@ -72,7 +72,7 @@ where
     }
 }
 
-impl<D, const N: usize, const M: usize, const O: usize> Aprox<D> for [[[D; O]; M]; N]
+impl<D, const N: usize, const M: usize, const O: usize> Approx<D> for [[[D; O]; M]; N]
 where
     D: Copy + ApproxEq + Display,
 {

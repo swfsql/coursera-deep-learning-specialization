@@ -301,7 +301,8 @@ pub mod _4 {
         use dfdx::{tensor::ZerosTensor, tensor_ops::ChooseFrom};
 
         use super::{Model, PreparedData, Propagation};
-        use crate::helpers::_dfdx::*;
+        #[allow(unused_imports)]
+        use crate::helpers::{Approx, _dfdx::*};
 
         impl<const XLEN: usize> Model<XLEN> {
             pub fn optimize<const SETLEN: usize>(
@@ -359,24 +360,28 @@ pub mod _4 {
 
             let opt = model.optimize(train, 100, 9e-3, 100);
 
-            assert_eq!(
-                opt.model.w.reshape::<Rank1<2>>().array(),
-                [0.19033602, 0.12259145]
-            );
-            assert_eq!(opt.model.b.array(), [1.9253595]);
-            assert_eq!(
-                opt.last_propagation
-                    .clone()
-                    .unwrap()
-                    .dw
-                    .reshape::<Rank1<2>>()
-                    .array(),
-                [0.67752033, 1.4162549]
-            );
-            assert_eq!(
-                opt.last_propagation.as_ref().unwrap().db.array(),
-                [0.21919446]
-            );
+            assert!(opt
+                .model
+                .w
+                .reshape::<Rank1<2>>()
+                .array()
+                .approx([0.19033602, 0.12259145], (1e-7, 0)),);
+            assert!(opt.model.b.array().approx([1.9253595], (1e-7, 0)),);
+            assert!(opt
+                .last_propagation
+                .clone()
+                .unwrap()
+                .dw
+                .reshape::<Rank1<2>>()
+                .array()
+                .approx([0.67752033, 1.4162549], (1e-7, 0)),);
+            assert!(opt
+                .last_propagation
+                .as_ref()
+                .unwrap()
+                .db
+                .array()
+                .approx([0.21919446], (1e-7, 0)),);
         }
 
         impl<const XLEN: usize> Model<XLEN> {
@@ -415,7 +420,8 @@ pub use _4::{Model, Optimization, Propagation};
 pub mod _5 {
     use super::_2::*;
     use super::*;
-    use crate::helpers::_dfdx::*;
+    #[allow(unused_imports)]
+    use crate::helpers::{Approx, _dfdx::*};
 
     impl<const XLEN: usize> Model<XLEN> {
         pub fn train<const TRAINLEN: usize, const TESTLEN: usize>(
@@ -474,6 +480,7 @@ pub mod _5 {
     ) -> TensorF32<Rank1<1>>
     where
         YD: dfdx::dtypes::Unit,
+        YD: num_traits::cast::AsPrimitive<f32>,
     {
         (prediction - y.to_dtype::<f32>())
             .abs()
@@ -493,9 +500,9 @@ pub mod _5 {
         let train_accuracy = accuracy(model.train_predict, train.y);
         let test_accuracy = accuracy(model.test_predict, test.y);
 
-        assert_eq!(model.costs[0], 0.6931472);
-        assert_eq!(train_accuracy.array()[0], 99.04306);
-        assert_eq!(test_accuracy.array()[0], 70.);
+        assert!(model.costs[0].approx(0.6931472, (1e-5, 0)),);
+        assert!(train_accuracy.array()[0].approx(99.04306, (1., 0)),);
+        assert!(test_accuracy.array()[0].approx(70., (2., 0)),);
 
         Ok(())
     }

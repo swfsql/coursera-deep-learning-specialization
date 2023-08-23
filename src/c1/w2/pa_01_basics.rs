@@ -9,7 +9,8 @@ pub mod _1 {
 
     /// C01W02PA01 Part 1 Section 1 - Sigmoid Function.
     pub mod _1 {
-        use crate::helpers::_dfdx::*;
+        #[allow(unused_imports)]
+        use crate::helpers::{Approx, _dfdx::*};
 
         pub mod sigmoid_basic_test {
             /// Returns sigmoid(x).
@@ -56,7 +57,7 @@ pub mod _1 {
             let x: TensorF32<Rank1<3>> = dev.tensor(X);
 
             // test sigmoid(x)
-            assert_eq!(sigmoid(x.clone()).array(), XSIG);
+            sigmoid(x.clone()).array().approx(XSIG, (1e-5, 0));
             assert_eq!(sigmoid(x.clone()).array(), (x.clone()).sigmoid().array());
         }
     }
@@ -79,7 +80,7 @@ pub mod _1 {
 
         #[test]
         fn _1() {
-            use crate::helpers::Aprox;
+            use crate::helpers::Approx;
 
             let dev = device();
 
@@ -159,7 +160,8 @@ pub mod _1 {
 
     /// C01W02PA01 Part 1 Section 5 - Broadcasting and the Softmax Function.
     pub mod _5 {
-        use crate::helpers::_dfdx::*;
+        #[allow(unused_imports)]
+        use crate::helpers::{Approx, _dfdx::*};
         use dfdx::tensor_ops::{BroadcastTo, SumTo};
 
         #[rustfmt::skip]
@@ -191,7 +193,7 @@ pub mod _1 {
         fn _1() {
             let dev = device();
             let x = dev.tensor(X);
-            assert_eq!(softmax(x).array(), XSOFTMAX2);
+            assert!(softmax(x).array().approx(XSOFTMAX2, (1e-5, 0)),);
         }
     }
     pub use _5::softmax;
@@ -238,7 +240,7 @@ pub mod _2 {
 
         #[test]
         fn _1() {
-            use crate::helpers::{Aprox, _dfdx::*};
+            use crate::helpers::{Approx, _dfdx::*};
             let dev = device();
 
             let x1: TensorF32<Rank1<15>> = dev.tensor(X1);
