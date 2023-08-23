@@ -1,10 +1,6 @@
 ### Deep Learning Specialization on Coursera (offered by deeplearning.ai)
 
-Completed: 
-- C1W1~3
-
-This repo is the progress of me learning Machine Learning thanks to the video lectures made by Andrew Ng and some other rsources.  
-This is a fork from [this](https://github.com/amanchadha/coursera-deep-learning-specialization/tree/d968708a5318457acdea8f61d6acd4d1db86833f). The parent repo contains more information, references and content, so if you are studying ML I recommend checking it out.
+This repo is the progress of me learning Machine Learning thanks to the video lectures made by Andrew Ng and some other resources. This is a fork from [this](https://github.com/amanchadha/coursera-deep-learning-specialization/tree/d968708a5318457acdea8f61d6acd4d1db86833f). The parent repo contains more information, references and content, so if you are studying ML I recommend you checking it out.
 
 This present repo is somewhat a rewrite from the Python jupyter code into Rust, experimenting with `dfdx`, and later `candle` and `burn` ML frameworks. Each file informs what it's related to from the original/parent/python repo.
 
@@ -14,12 +10,11 @@ For the datasets (~1.2GB .zip file + another 550MB download from `setup.sh`) see
 ### Testing
 
 ```bash
-# to test using cuda (dfdx, candle) and wpgu (burn), run:
-cargo test --features="cuda,wpgu"
+# to test c1w1 on the cpu and in release mode, run:
+cargo test --release --lib c1::w2
 
-# to test using the cpu only, run:
-cargo test
-# note: I dev with the cuda feature, and sometimes I try (and update fixes) for the cpu-only.
+# to test c1w1 with cuda in debug mode, run: 
+cargo test --features="cuda" --lib c1::w2
 ```
 
 ### Dev
