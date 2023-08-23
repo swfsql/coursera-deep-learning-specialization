@@ -1,0 +1,58 @@
+# FROM nvidia/cuda:12.2.0-devel-ubuntu22.04
+FROM nvidia/cuda:12.1.0-cudnn8-devel-ubuntu22.04
+
+# basic tools
+RUN apt update \
+  && apt install -y --no-install-recommends \
+  git vim openssh-client gnupg curl wget ca-certificates unzip zip less zlib1g sudo coreutils sed grep
+#
+
+# cargo/rust
+ENV RUSTUP_HOME=/usr/local/rustup 
+ENV CARGO_HOME=/usr/local/cargo 
+ENV PATH=/usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# https://blog.rust-lang.org/2022/06/22/sparse-registry-testing.html
+ENV CARGO_UNSTABLE_SPARSE_REGISTRY=true
+RUN set -eux; \
+  apt update \
+  && apt install -y --no-install-recommends \
+    ca-certificates gcc build-essential; \
+  url="https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init"; \
+  wget "$url"; \
+  chmod +x rustup-init; \
+  ./rustup-init -y --no-modify-path --default-toolchain nightly; \
+  rm rustup-init; \
+  chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
+  rustup --version; \
+  cargo --version; \
+  rustc --version;
+#
+
+# https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#environment-setup
+RUN echo "export PATH=/usr/local/cuda-12.1/bin${PATH:+:${PATH}}" >> ~/.bashrc
+
+# avoid some warnings when using wgpu+vulkan
+RUN echo "export XDG_RUNTIME_DIR=~/" >> ~/.bashrc
+
+RUN set -eux; \
+  apt update \
+  && apt install -y --no-install-recommends \
+    libhdf5-dev mesa-vulkan-drivers;
+
+
+# python
+ENV LANG=C.UTF-8
+RUN apt install -y --no-install-recommends \
+    python3 python3-tk python3-pip python3-matplotlib python3-sklearn; \
+  python3 -m pip install ipykernel -U --user --force-reinstall; \
+  pip install numpy h5py;
+#
+
+
+# cleanup
+# RUN set -eux; \
+#   apt autoclean -y; \
+#   apt autoremove -y; \
+#   apt clean; \
+#   rm -rf /var/lib/apt/lists/*
+#
