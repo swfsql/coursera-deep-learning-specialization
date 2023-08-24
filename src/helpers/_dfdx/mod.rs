@@ -1,6 +1,8 @@
 pub mod dot;
+pub mod flat_right;
 pub mod hdf5read;
 pub mod outer;
+pub mod stack_right;
 
 #[cfg(not(feature = "cuda"))]
 pub type Device = dfdx::tensor::Cpu;
@@ -16,12 +18,14 @@ pub use dfdx::{
         Axes, Axes2, Axes3, Axes4, Axes5, Axes6, Rank0, Rank1, Rank2, Rank3, Rank4, Rank5, Rank6,
         Shape,
     },
-    tensor::{AsArray, OnesTensor, Tensor, TensorFrom, ZerosTensor},
+    tensor::{AsArray, OnesTensor, SampleTensor, Tensor, TensorFrom, ZerosTensor},
     tensor_ops::{BroadcastTo, ChooseFrom, MeanTo, PermuteTo, RealizeTo, ReshapeTo, SumTo, TryGe},
 };
 pub use dot::Dot;
+pub use flat_right::*;
 pub use hdf5read::Hdf5Read;
 pub use outer::OuterProduct;
+pub use stack_right::*;
 
 pub type TensorF32<Rank> = Tensor<Rank, f32, Device>;
 pub type TensorU8<Rank> = Tensor<Rank, u8, Device>;

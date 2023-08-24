@@ -8,7 +8,7 @@
 //! I recommend first watching all of C1W2.
 
 /// C01W02PA02 Part 1 - Packages.
-pub mod _1 {
+mod _1 {
     // no content
 }
 
@@ -141,7 +141,7 @@ pub mod _2 {
 pub use _2::PreparedData;
 
 /// C01W02PA02 Part 3 - General Archtecture of the Learning Algorithm.
-pub mod _3 {
+mod _3 {
     // no content
 }
 
@@ -543,6 +543,6 @@ pub mod _6 {
 }
 
 /// C01W02PA02 Part 7 - Test With Your Own Image.
-pub mod _7 {
+mod _7 {
     // no content
 }

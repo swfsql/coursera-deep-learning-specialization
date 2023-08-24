@@ -9,7 +9,7 @@
 //! 3b1b "Neural Networks": https://www.youtube.com/watch?v=aircAruvnKk&list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi
 
 /// C01W03PA01 Part 1 - Packages.
-pub mod _1 {
+mod _1 {
     // no content
 }
 
@@ -127,7 +127,7 @@ pub mod _4 {
     }
 
     /// C01W03PA01 Section 1 - Defining the Neural Network Structure.
-    pub mod _1 {
+    mod _1 {
         // no content
     }
 
@@ -696,6 +696,6 @@ pub mod _4 {
 pub use _4::{accuracy, Cache, Gradient, Model};
 
 /// C01W03PA01 Part 5 - Performance on Other Datasets.
-pub mod _5 {
+mod _5 {
     // no content
 }
