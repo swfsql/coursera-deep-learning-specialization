@@ -96,7 +96,7 @@ pub mod _4 {
     /// - b1: 4 nodes (rows);
     /// - w2: 1 node (rows), 4 "features" (cols);
     /// - b2: 1 node (rows);
-    fn example_model(device: &Device) -> Model<2, 4, 1> {
+    pub fn example_model(device: &Device) -> Model<2, 4, 1> {
         Model::from_values(
             device,
             [
@@ -112,7 +112,7 @@ pub mod _4 {
     }
 
     /// - 2 features (rows), 3 examples (cols);
-    fn example_x(device: &Device) -> TensorF32<Rank2<2, 3>> {
+    pub fn example_x(device: &Device) -> TensorF32<Rank2<2, 3>> {
         device.tensor([
             [1.6243453, -0.6117564, -0.5281717],
             [-1.0729686, 0.86540763, -2.3015387],
@@ -120,7 +120,7 @@ pub mod _4 {
     }
 
     /// - 1 output value (rows), 3 examples (cols);
-    fn example_y(device: &Device) -> TensorF32<Rank2<1, 3>> {
+    pub fn example_y(device: &Device) -> TensorF32<Rank2<1, 3>> {
         let y = device.tensor([[true, false, true]]);
         y.clone()
             .choose(device.ones_like(&y), device.zeros_like(&y))
@@ -321,7 +321,7 @@ pub mod _4 {
                 // J -> L -> a2
                 // activation function a2(z2) = σ(z2) = 1/(1 + e^-z2) <- from sigmoid definition
                 // ∂a2/∂z2 = ∂a2/∂z2 = σ'(z2) = e^-z2 / (1 + e^-z2)² = σ(z2) * (1-σ(z2)) = a2(1-a2) <- from calculus
-                // m * ∂J/∂a2 = y/a2 + (1-y)/(1-a2) = (a2-y)/(a2(1-a2))
+                // m * ∂J/∂a2 = (1-y)/(1-a2) - y/a2 = (a2-y)/(a2(1-a2))
                 //
                 // note: for better precision, 1/m is deferred, so we multiply by m on the partial derivative side.
                 // (instead of dividing by m for just dz2, we instead do it for each of dw2,db2,dw1,db1)
@@ -352,7 +352,7 @@ pub mod _4 {
                 // J -> L -> a2 -> z2 -> a1 -> z1
                 // z1(x,w1,b1) = b1 + w1 * x
                 // ∂a1/∂z1 = 1 - a1² <- from calculus
-                // mdz1 = m * ∂J/∂z1 = ∂a1/∂z1 * ∂J/∂a1 = (1 - a1²) * w2 * mdz2
+                // mdz1 = m * ∂J/∂z1 = ∂a1/∂z1 * ∂J/∂a1 = (1 - a1²) * w2*mdz2
                 let mdz1 = self.w2.permute::<_, Axes2<1, 0>>().dot(mdz2)
                     * (cache.a1.square().negate() + 1.0);
 
@@ -428,7 +428,7 @@ pub mod _4 {
                     [-0.012589335, 0.031008393]
                 ],
                 (1e-7, 0)
-            ),);
+            ));
             assert!(grads.db1.array().approx(
                 [
                     [0.0017263684],
@@ -477,7 +477,7 @@ pub mod _4 {
                     [0.024461564, -0.087392285]
                 ],
                 (1e-8, 0)
-            ),);
+            ));
             assert!(model.b1.array().approx(
                 [
                     [-0.0020725399],
@@ -486,12 +486,12 @@ pub mod _4 {
                     [0.008702588]
                 ],
                 (1e-8, 0)
-            ),);
+            ));
             assert!(model.w2.array().approx(
                 [[-0.026805554, -0.07453275, 0.02510668, 0.08987522]],
                 (1e-7, 0)
-            ),);
-            assert!(model.b2.array().approx([[0.19902185]], (1e-8, 0)),);
+            ));
+            assert!(model.b2.array().approx([[0.19902185]], (1e-8, 0)));
         }
     }
     pub use _3::{Cache, Gradient};
@@ -538,16 +538,16 @@ pub mod _4 {
                     [0.7531452, -1.3976556]
                 ],
                 (1e-6, 0)
-            ),);
+            ));
             assert!(model.b1.array().approx(
                 [[0.26729938], [0.3290354], [-0.26096892], [-0.34003872]],
                 (1e-6, 0)
-            ),);
+            ));
             assert!(model
                 .w2
                 .array()
-                .approx([[-2.323175, -3.111068, 2.2466047, 3.262285]], (1e-6, 0)),);
-            assert!(model.b2.array().approx([[0.18929027]], (1e-6, 0)),);
+                .approx([[-2.323175, -3.111068, 2.2466047, 3.262285]], (1e-6, 0)));
+            assert!(model.b2.array().approx([[0.18929027]], (1e-6, 0)));
         }
     }
 

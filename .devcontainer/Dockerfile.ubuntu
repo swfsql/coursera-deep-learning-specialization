@@ -41,11 +41,11 @@ RUN set -eux; \
 
 
 # python
-ENV LANG=C.UTF-8
-RUN apt install -y --no-install-recommends \
-    python3 python3-tk python3-pip python3-matplotlib python3-sklearn; \
-  python3 -m pip install ipykernel -U --user --force-reinstall; \
-  pip install numpy h5py;
+# ENV LANG=C.UTF-8
+# RUN apt install -y --no-install-recommends \
+#     python3 python3-tk python3-pip python3-matplotlib python3-sklearn; \
+#   python3 -m pip install ipykernel -U --user --force-reinstall; \
+#   pip install numpy h5py;
 #
 
 

@@ -1,17 +1,17 @@
 pub trait FlatRightN: Sized {
-    fn flat1(self) -> <Self as FlatRight<1>>::Output
-    where
-        Self: FlatRight<1>,
-    {
-        FlatRight::<1>::flat(self)
-    }
+    // fn flat1(self) -> <Self as FlatRight<1>>::Output
+    // where
+    //     Self: FlatRight<1>,
+    // {
+    //     FlatRight::<1>::flat(self)
+    // }
 
-    fn flat2(self) -> <Self as FlatRight<2>>::Output
-    where
-        Self: FlatRight<2>,
-    {
-        FlatRight::<2>::flat(self)
-    }
+    // fn flat2(self) -> <Self as FlatRight<2>>::Output
+    // where
+    //     Self: FlatRight<2>,
+    // {
+    //     FlatRight::<2>::flat(self)
+    // }
 
     fn flat3(self) -> <Self as FlatRight<3>>::Output
     where
@@ -63,7 +63,18 @@ pub trait FlatRightN: Sized {
     }
 }
 
-impl<T: Sized> FlatRightN for T {}
+impl<T: Sized + IsTuple> FlatRightN for T {}
+
+pub trait IsTuple {}
+impl<A> IsTuple for (A,) {}
+impl<A, B> IsTuple for (A, B) {}
+impl<A, B, C> IsTuple for (A, B, C) {}
+impl<A, B, C, D> IsTuple for (A, B, C, D) {}
+impl<A, B, C, D, E> IsTuple for (A, B, C, D, E) {}
+impl<A, B, C, D, E, F> IsTuple for (A, B, C, D, E, F) {}
+impl<A, B, C, D, E, F, G> IsTuple for (A, B, C, D, E, F, G) {}
+impl<A, B, C, D, E, F, G, H> IsTuple for (A, B, C, D, E, F, G, H) {}
+impl<A, B, C, D, E, F, G, H, I> IsTuple for (A, B, C, D, E, F, G, H, I) {}
 
 pub trait FlatRight<const N: usize> {
     type Output;

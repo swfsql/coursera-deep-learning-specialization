@@ -365,8 +365,8 @@ pub mod _4 {
                 .w
                 .reshape::<Rank1<2>>()
                 .array()
-                .approx([0.19033602, 0.12259145], (1e-7, 0)),);
-            assert!(opt.model.b.array().approx([1.9253595], (1e-7, 0)),);
+                .approx([0.19033602, 0.12259145], (1e-7, 0)));
+            assert!(opt.model.b.array().approx([1.9253595], (1e-7, 0)));
             assert!(opt
                 .last_propagation
                 .clone()
@@ -374,14 +374,14 @@ pub mod _4 {
                 .dw
                 .reshape::<Rank1<2>>()
                 .array()
-                .approx([0.67752033, 1.4162549], (1e-7, 0)),);
+                .approx([0.67752033, 1.4162549], (1e-7, 0)));
             assert!(opt
                 .last_propagation
                 .as_ref()
                 .unwrap()
                 .db
                 .array()
-                .approx([0.21919446], (1e-7, 0)),);
+                .approx([0.21919446], (1e-7, 0)));
         }
 
         impl<const XLEN: usize> Model<XLEN> {
@@ -500,9 +500,9 @@ pub mod _5 {
         let train_accuracy = accuracy(model.train_predict, train.y);
         let test_accuracy = accuracy(model.test_predict, test.y);
 
-        assert!(model.costs[0].approx(0.6931472, (1e-5, 0)),);
-        assert!(train_accuracy.array()[0].approx(99.04306, (1., 0)),);
-        assert!(test_accuracy.array()[0].approx(70., (2., 0)),);
+        assert!(model.costs[0].approx(0.6931472, (1e-5, 0)));
+        assert!(train_accuracy.array()[0].approx(99.04306, (1., 0)));
+        assert!(test_accuracy.array()[0].approx(70., (2., 0)));
 
         Ok(())
     }

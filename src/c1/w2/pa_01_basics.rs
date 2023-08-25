@@ -193,7 +193,7 @@ pub mod _1 {
         fn _1() {
             let dev = device();
             let x = dev.tensor(X);
-            assert!(softmax(x).array().approx(XSOFTMAX2, (1e-5, 0)),);
+            assert!(softmax(x).array().approx(XSOFTMAX2, (1e-5, 0)));
         }
     }
     pub use _5::softmax;

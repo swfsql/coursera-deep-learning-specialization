@@ -1,17 +1,17 @@
 pub trait StackRightN: Sized {
-    fn stack1(self) -> <Self as StackRight<1>>::Output
-    where
-        Self: StackRight<1>,
-    {
-        StackRight::<1>::stack(self)
-    }
+    // fn stack1(self) -> <Self as StackRight<1>>::Output
+    // where
+    //     Self: StackRight<1>,
+    // {
+    //     StackRight::<1>::stack(self)
+    // }
 
-    fn stack2(self) -> <Self as StackRight<2>>::Output
-    where
-        Self: StackRight<2>,
-    {
-        StackRight::<2>::stack(self)
-    }
+    // fn stack2(self) -> <Self as StackRight<2>>::Output
+    // where
+    //     Self: StackRight<2>,
+    // {
+    //     StackRight::<2>::stack(self)
+    // }
 
     fn stack3(self) -> <Self as StackRight<3>>::Output
     where
@@ -63,7 +63,10 @@ pub trait StackRightN: Sized {
     }
 }
 
-impl<T: Sized> StackRightN for T {}
+impl<T: Sized + IsTuple> StackRightN for T {}
+pub trait IsTuple {}
+impl<A> IsTuple for (A,) {}
+impl<A, B> IsTuple for (A, B) {}
 
 pub trait StackRight<const N: usize> {
     type Output;

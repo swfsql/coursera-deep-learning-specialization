@@ -19,13 +19,15 @@ pub use dfdx::{
         Shape,
     },
     tensor::{AsArray, OnesTensor, SampleTensor, Tensor, TensorFrom, ZerosTensor},
-    tensor_ops::{BroadcastTo, ChooseFrom, MeanTo, PermuteTo, RealizeTo, ReshapeTo, SumTo, TryGe},
+    tensor_ops::{
+        BroadcastTo, ChooseFrom, MeanTo, PermuteTo, RealizeTo, ReshapeTo, SumTo, TryGe, TryGt,
+    },
 };
 pub use dot::Dot;
-pub use flat_right::*;
+pub use flat_right::FlatRightN;
 pub use hdf5read::Hdf5Read;
 pub use outer::OuterProduct;
-pub use stack_right::*;
+pub use stack_right::StackRightN;
 
 pub type TensorF32<Rank> = Tensor<Rank, f32, Device>;
 pub type TensorU8<Rank> = Tensor<Rank, u8, Device>;
