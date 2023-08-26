@@ -1099,6 +1099,32 @@ pub mod _6 {
             }
         }
 
+        pub trait CleanupGrads {
+            type Output;
+            /// Removes the mda information.
+            fn remove_mdas(self) -> Self::Output;
+        }
+
+        impl CleanupGrads for () {
+            type Output = ();
+            /// Removes the mda information.
+            fn remove_mdas(self) -> Self::Output {}
+        }
+
+        impl<const NODELEN: usize, const FEATLEN: usize, const SETLEN: usize, B> CleanupGrads
+            for ((Grads<NODELEN, FEATLEN>, Mda<FEATLEN, SETLEN>), B)
+        where
+            B: CleanupGrads,
+        {
+            type Output = (Grads<NODELEN, FEATLEN>, B::Output);
+            /// Removes the mda information.
+            fn remove_mdas(self) -> Self::Output {
+                let (grads, _mda) = self.0;
+                let tail = self.1;
+                (grads, tail.remove_mdas())
+            }
+        }
+
         // same values as the previous test
         #[test]
         fn test_upward_j_variable() {
@@ -1109,10 +1135,11 @@ pub mod _6 {
             let caches = layers.clone().downward(x.clone());
             let grads = layers
                 .gradients(MLogistical::from_a(y), (Cache::from_a(x), caches))
+                .remove_mdas()
                 .flat3();
 
             // same values as the previous test
-            assert!(grads.0 .0.dw.array().approx(
+            assert!(grads.0.dw.array().approx(
                 [
                     [0.57377756, -0.44744247, 0.35314572, -0.021219313],
                     [-0.0021573375, -0.00041055086, -0.0032351865, -0.001539701],
@@ -1122,24 +1149,87 @@ pub mod _6 {
             ));
             assert!(grads
                 .0
-                 .0
                 .db
                 .array()
                 .approx([0.70517296, -0.0025134084, 0.0], (1e-7, 0)));
         }
     }
-    pub use _3::{DownUpGrads, Grads, SplitHead, UpwardJA};
+    pub use _3::{CleanupGrads, DownUpGrads, Grads, SplitHead, UpwardJA};
 
     /// C01W04PA01 Section 4 - Update Parameters.
     pub mod _4 {
-        // no content
+        use super::*;
+
+        /// Recursively update the parameters.
+        pub trait UpdateParameters: Sized {
+            type Grads;
+            fn update_params(self, grads: Self::Grads, learning_rate: f32) -> Self;
+        }
+
+        impl<const NODELEN: usize, const FEATLEN: usize, Z, A> UpdateParameters
+            for Layer<FEATLEN, NODELEN, Z, A>
+        {
+            type Grads = (Grads<NODELEN, FEATLEN>, ());
+            fn update_params(mut self, grads: Self::Grads, learning_rate: f32) -> Self {
+                self.w = self.w - grads.0.dw * learning_rate;
+                self.b = self.b - (grads.0.db * learning_rate).reshape::<Rank2<NODELEN, 1>>();
+                self
+            }
+        }
+
+        impl<const NODELEN: usize, const FEATLEN: usize, Z, A, Lower> UpdateParameters
+            for (Layer<FEATLEN, NODELEN, Z, A>, Lower)
+        where
+            Lower: UpdateParameters,
+        {
+            type Grads = (Grads<NODELEN, FEATLEN>, Lower::Grads);
+            fn update_params(
+                mut self,
+                (grads, lower_grads): Self::Grads,
+                learning_rate: f32,
+            ) -> Self {
+                self.0.w = self.0.w - grads.dw * learning_rate;
+                self.0.b = self.0.b - (grads.db * learning_rate).reshape::<Rank2<NODELEN, 1>>();
+                let lower = self.1.update_params(lower_grads, learning_rate);
+                (self.0, lower)
+            }
+        }
+
+        #[test]
+        fn test_upward_update_params() {
+            let dev = &device();
+            let x: X<4, 2> = dev.sample_normal();
+            let y: Y<1, 2> = dev.sample_normal();
+            let layers = layer!(dev, [4, 3, 1]);
+            let caches = layers.clone().downward(x.clone());
+            let grads = layers
+                .clone()
+                .gradients(MLogistical::from_a(y), (Cache::from_a(x), caches));
+            let layers = layers.update_params(grads.remove_mdas(), 0.1);
+
+            assert!(layers.0.w.array().approx(
+                [
+                    [1.480139, -2.7758787, -0.9124922, 1.7183491],
+                    [-0.5694077, -0.19419292, -0.10697466, 1.9388653],
+                    [-0.6224373, 0.039840154, -0.48291135, 1.162031]
+                ],
+                (1e-7, 0)
+            ));
+            assert!(layers
+                .1
+                .w
+                .array()
+                .approx([[-0.45875955, 0.039989635, 0.39889193]], (1e-7, 0)));
+        }
     }
+    pub use _4::UpdateParameters;
 }
 pub use _6::{
-    DownUpGrads, Dzdx, Grads, Mda, Mdz, SplitHead, UpwardAZ, UpwardDownZUpA, UpwardJA, UpwardZwb,
+    CleanupGrads, DownUpGrads, Dzdx, Grads, Mda, Mdz, SplitHead, UpdateParameters, UpwardAZ,
+    UpwardDownZUpA, UpwardJA, UpwardZwb,
 };
 
 /// C01W04PA01 Part 7 - Conclusion.
-pub mod _7 {
+mod _7 {
     // no content
 }
