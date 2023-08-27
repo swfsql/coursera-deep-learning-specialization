@@ -48,6 +48,11 @@ pub mod _3 {
         }
 
         impl<const FEATLEN: usize, const NODELEN: usize, Z, A> Layer<FEATLEN, NODELEN, Z, A> {
+            pub fn uniform(device: &Device) -> Self {
+                let w: W<NODELEN, FEATLEN> = device.sample_uniform();
+                let b: B<NODELEN> = device.zeros();
+                Self::with(w, b)
+            }
             pub fn normal(device: &Device) -> Self {
                 let w: W<NODELEN, FEATLEN> = device.sample_normal();
                 let b: B<NODELEN> = device.zeros();
@@ -114,7 +119,9 @@ pub mod _3 {
     pub mod _2 {
         use super::*;
 
-        /// Creates one or more layers from a normal distribution.
+        /// Creates one or more layers from a scaled normal distribution.  
+        /// The weights are further scaled to the inverse sqrt of the number of features.  
+        /// The biases are set to zero.
         ///
         /// Example with implicit `Linear`>`Relu` hidden layers and with a final `Linear`>`Sigmoid` final layer
         /// ```rust
@@ -122,9 +129,9 @@ pub mod _3 {
         /// # use coursera_exercises::c1::w4::pa_01_deep_nn::{Linear, ReLU, Sigmoid, Layer};
         /// # use coursera_exercises::helpers::_dfdx::*;
         /// # let dev = device();
-        /// let s = layer!(&dev, [1, 1]);
-        /// let rs = layer!(&dev, [1, 1, 1]);
-        /// let rrs = layer!(&dev, [1, 1, 1, 1]).flat3();
+        /// let s = layer!(&dev, 1., [1, 1]);
+        /// let rs = layer!(&dev, 1., [1, 1, 1]);
+        /// let rrs = layer!(&dev, 1., [1, 1, 1, 1]).flat3();
         /// ```
         ///
         /// Example where all functions are explicit:
@@ -133,74 +140,79 @@ pub mod _3 {
         /// # use coursera_exercises::c1::w4::pa_01_deep_nn::{Linear, ReLU, Sigmoid, Layer};
         /// # use coursera_exercises::helpers::_dfdx::*;
         /// # let dev = device();
-        /// let s = layer!(&dev, 1, Linear > Sigmoid => [1]);
-        /// let rs = layer!(&dev, 1, Linear > ReLU => [1], Linear > Sigmoid => [1]);
-        /// let rrs = layer!(&dev, 1, Linear > ReLU => [1, 1], Linear > Sigmoid => [1]).flat3();
+        /// let s = layer!(&dev, 1., 1, Linear > Sigmoid => [1]);
+        /// let rs = layer!(&dev, 1., 1, Linear > ReLU => [1], Linear > Sigmoid => [1]);
+        /// let rrs = layer!(&dev, 1., 1, Linear > ReLU => [1, 1], Linear > Sigmoid => [1]).flat3();
         /// ```
         #[allow(unused_macros)]
         #[allow(unused_attributes)]
         #[macro_export]
         macro_rules! layer {
             // implicit layers creation, hidden layers are Linear>Relu, the last is Linear>Sigmoid
-            ($dev:expr, [$head_layer_node:literal, $($tail_layers_nodes:literal),*]) => {
+            ($dev:expr, $scalar:expr, [$head_layer_node:literal, $($tail_layers_nodes:literal),*]) => {
                 // separates the feature and forward to another macro call
-                layer!($dev, auto, $head_layer_node, [$($tail_layers_nodes),*])
+                $crate::layer!($dev, auto, $scalar, $head_layer_node, [$($tail_layers_nodes),*])
             };
 
             // explicit single layer creation
-            ($dev:expr, $features:literal, $z:ty>$a:ty => $layer_nodes:literal) => {
-                // returns the layer
-                Layer::<$features, $layer_nodes, $z, $a>::normal($dev)
+            ($dev:expr, $scalar:expr, $features:literal, $z:ty>$a:ty => $layer_nodes:literal) => {
+                {
+                    // returns the layer
+                    type _Layer<const FEATLEN: usize, const NODELEN: usize, Z, A> = $crate::c1::w4::pa_01_deep_nn::Layer<FEATLEN, NODELEN, Z, A>;
+                    let mut _layer = _Layer::<$features, $layer_nodes, $z, $a>::normal($dev);
+                    _layer.w = _layer.w * ($scalar as f32) / ($features as f32).sqrt();
+                    _layer
+                }
             };
 
             // implicit hidden layer creation, all Linear>Relu
-            ($dev:expr, auto, $node_features:literal, [$head_layer_node:literal, $($tail_layers_nodes:literal),*]) => {
+            ($dev:expr, auto, $scalar:expr, $node_features:literal, [$head_layer_node:literal, $($tail_layers_nodes:literal),*]) => {
                 (
                     {
                         // creates a single implicit layer
                         type _Linear = $crate::c1::w4::pa_01_deep_nn::Linear;
                         type _Relu = $crate::c1::w4::pa_01_deep_nn::ReLU;
-                        layer!($dev, $node_features, _Linear>_Relu => $head_layer_node)
+                        $crate::layer!($dev, $scalar, $node_features, _Linear>_Relu => $head_layer_node)
                     },
                     // recursive macro call on the remaining layers, forwarding the last "feature" information
-                    layer!($dev, auto, $head_layer_node, [$($tail_layers_nodes),*])
+                    $crate::layer!($dev, auto, $scalar, $head_layer_node, [$($tail_layers_nodes),*])
                 )
             };
 
             // explicit hidden layer creation
-            ($dev:expr, $node_features:literal, $z:ty>$a:ty => [$head_layer_node:literal, $($tail_layers_nodes:literal),*] $($other:tt)*) => {
+            ($dev:expr, $scalar:expr, $node_features:literal, $z:ty>$a:ty => [$head_layer_node:literal, $($tail_layers_nodes:literal),*] $($other:tt)*) => {
                 (
                     // creates a single layer
-                    layer!($dev, $node_features, $z>$a => $head_layer_node),
+                    $crate::layer!($dev, $scalar, $node_features, $z>$a => $head_layer_node),
                     // recursive macro call on the remaining layers, forwarding the last "feature" information
-                    layer!($dev, $head_layer_node, $z>$a => [$($tail_layers_nodes),*] $($other)*)
+                    $crate::layer!($dev, $scalar, $head_layer_node, $z>$a => [$($tail_layers_nodes),*] $($other)*)
                 )
             };
 
             // implicit last layer creation, Linear>Sigmoid
-            ($dev:expr, auto, $node_features:literal, [$last_layer_node:literal]) => {
+            ($dev:expr, auto, $scalar:expr, $node_features:literal, [$last_layer_node:literal]) => {
                 {
                     // creates a single implicit layer (which is the last)
                     type _Linear = $crate::c1::w4::pa_01_deep_nn::Linear;
                     type _Sigmoid = $crate::c1::w4::pa_01_deep_nn::Sigmoid;
-                    layer!($dev, $node_features, _Linear>_Sigmoid => $last_layer_node)
+                    $crate::layer!($dev, $scalar, $node_features, _Linear>_Sigmoid => $last_layer_node)
                 }
             };
 
             // explicit last layer creation (with no continuation)
-            ($dev:expr, $node_features:literal, $z:ty>$a:ty => [$last_layer_node:literal]) => {
+            ($dev:expr, $scalar:expr, $node_features:literal, $z:ty>$a:ty => [$last_layer_node:literal]) => {
                 // returns the layer
-                layer!($dev, $node_features, $z>$a => $last_layer_node)
+                $crate::layer!($dev, $scalar, $node_features, $z>$a => $last_layer_node)
             };
 
             // explicit "last" layer creation (with a continuation)
-            ($dev:expr, $node_features:literal, $z:ty>$a:ty => [$last_layer_node:literal] $($other:tt)*) => {
+            ($dev:expr, $scalar:expr, $node_features:literal, $z:ty>$a:ty => [$last_layer_node:literal] $($other:tt)*) => {
                 (
                     // returns the layer
-                    layer!($dev, $node_features, $z>$a => $last_layer_node),
+                    $crate::layer!($dev, $scalar, $node_features, $z>$a => $last_layer_node),
                     // makes a brand new macro call on whatever arguments remains,
                     // forwarding the last "feature" information
-                    layer!($dev, $last_layer_node $($other)*)
+                    $crate::layer!($dev, $scalar, $last_layer_node $($other)*)
                 )
             };
         }
@@ -209,22 +221,22 @@ pub mod _3 {
         #[test]
         fn test_layers() {
             let dev = device();
-            let rs = layer!(&dev, [5, 4, 3]);
+            let rs = layer!(&dev, 1., [5, 4, 3]);
             let _r1: Layer<5, 4, Linear, ReLU> = rs.0;
             let _s2: Layer<4, 3, Linear, Sigmoid> = rs.1;
 
             // (nothing to assert)
 
             // note: I also created some helpers for tuple flattening, such as in:
-            let (_, _, _) = layer!(&dev, [1, 1, 1, 1]).flat3();
+            let (_, _, _) = layer!(&dev, 1., [1, 1, 1, 1]).flat3();
             // without it:
-            let (_, (_, _)) = layer!(&dev, [1, 1, 1, 1]);
+            let (_, (_, _)) = layer!(&dev, 1., [1, 1, 1, 1]);
 
             // Note: for this lesson I decided to call "forward" as "downward", and
             // "backward" as "upward".
             //
             // notice the type of the generated layers:
-            let (_, (_, (_, (_, (_, _))))) = layer!(&dev, [1, 1, 1, 1, 1, 1, 1]);
+            let (_, (_, (_, (_, (_, _))))) = layer!(&dev, 1., [1, 1, 1, 1, 1, 1, 1]);
             // this is similar to being on the top of some stairs, and then you
             // throw the data "downwards" and it goes kicking down the starts.
             // Then you start pulling it "upwards" (imagine you have a rod),
@@ -272,10 +284,10 @@ pub mod _4 {
         #[test]
         fn test_downward_z() {
             let dev = &device();
-            let linear = layer!(dev, [3, 1]);
+            let linear = layer!(dev, 1., [3, 1]);
             let x: X<3, 2> = dev.sample_normal();
             let z = linear.downward_z(x);
-            assert!(z.array().approx([[-0.27117705, -3.6855178]], (1e-6, 0)));
+            assert!(z.array().approx([[-0.15656424, -2.1278346,]], (1e-6, 0)));
         }
     }
     pub use _1::{DownwardZ, X, Z};
@@ -364,16 +376,13 @@ pub mod _4 {
             let dev = &device();
             let x: X<3, 2> = dev.sample_normal();
 
-            let sigmoid = layer!(dev, 3, Linear > Sigmoid => [1]);
+            let sigmoid = layer!(dev, 1., 3, Linear > Sigmoid => [1]);
             let cache = sigmoid.downward_za(x.clone());
-            assert!(cache
-                .a
-                .array()
-                .approx([[0.034352947, 0.40703216]], (1e-7, 0)));
+            assert!(cache.a.array().approx([[0.1271824, 0.44590577]], (1e-7, 0)));
 
-            let relu = layer!(dev, 3, Linear > ReLU => [1]);
+            let relu = layer!(dev, 1., 3, Linear > ReLU => [1]);
             let cache = relu.downward_za(x);
-            assert!(cache.a.array().approx([[1.09002, 0.0]], (1e-6, 0)));
+            assert!(cache.a.array().approx([[0.6293237, 0.0]], (1e-6, 0)));
         }
     }
     pub use _2::{Cache, DownwardA, DownwardZA, WrapA, A};
@@ -431,14 +440,14 @@ pub mod _4 {
         fn test_l_layers_downward() {
             let dev = &device();
             let x: X<5, 4> = dev.sample_normal();
-            let layers = layer!(dev, [5, 4, 3, 1]);
+            let layers = layer!(dev, 1., [5, 4, 3, 1]);
             let caches = layers.downward(x);
             assert!(caches
                 .flat4()
                 .2
                 .a
                 .array()
-                .approx([[0.50810283, 0.9082994, 0.7377677, 0.6885722]], (1e-6, 0)));
+                .approx([[0.5010462, 0.57347196, 0.5333355, 0.5255862,],], (1e-6, 0)));
         }
     }
     pub use _3::Downward;
@@ -450,9 +459,9 @@ pub mod _5 {
     use super::*;
     pub type Y<const NODELEN: usize, const SETLEN: usize> = TensorF32<Rank2<NODELEN, SETLEN>>;
 
-    pub trait Cost<const NODELEN: usize> {
+    pub trait Cost {
         /// Cost between the generated prediction and the given expected values.
-        fn cost(self, predict: Self) -> TensorF32<Rank1<NODELEN>>;
+        fn cost(self, predict: Self) -> TensorF32<Rank0>;
     }
 
     /// Logistical cost function.
@@ -466,17 +475,23 @@ pub mod _5 {
         pub a: A<NODELEN, SETLEN>,
     }
 
+    #[allow(clippy::let_and_return)]
     /// Logistical cost.
-    impl<const NODELEN: usize, const SETLEN: usize> Cost<NODELEN> for MLogistical<NODELEN, SETLEN> {
-        fn cost(self, predict: Self) -> TensorF32<Rank1<NODELEN>> {
+    impl<const NODELEN: usize, const SETLEN: usize> Cost for MLogistical<NODELEN, SETLEN> {
+        fn cost(self, predict: Self) -> TensorF32<Rank0> {
+            let y = self.a;
+            let yhat = predict.a;
+
             // loss function L = -(y*log(ŷ) + (1-y)log(1-ŷ))
-            let l1 = self.a.clone() * predict.a.clone().ln();
-            let l2 = self.a.clone().negate() + 1.;
-            let l3 = (predict.a.clone().negate() + 1.).ln();
-            let l = (l1 + l2 * l3).negate();
+            let l1 = y
+                .clone()
+                .dot((non_zero(yhat.clone()).ln()).permute::<_, Axes2<1, 0>>());
+            let l2 = y.clone().negate() + 1.;
+            let l3 = non_zero(yhat.negate() + 1.).ln();
+            let l = (l1 + l2.dot(l3.permute::<_, Axes2<1, 0>>())).negate();
 
             // cost function m * J = sum (L)
-            l.sum::<Rank1<NODELEN>, _>()
+            l.sum::<Rank0, _>()
         }
     }
 
@@ -503,13 +518,13 @@ pub mod _5 {
     }
 
     /// Squared cost.
-    impl<const NODELEN: usize, const SETLEN: usize> Cost<NODELEN> for MSquared<NODELEN, SETLEN> {
-        fn cost(self, predict: Self) -> TensorF32<Rank1<NODELEN>> {
+    impl<const NODELEN: usize, const SETLEN: usize> Cost for MSquared<NODELEN, SETLEN> {
+        fn cost(self, predict: Self) -> TensorF32<Rank0> {
             // loss function L = (ŷ-y)²
             let l = (predict.a - self.a).square();
 
             // cost function m * J = sum (L)
-            l.sum::<Rank1<NODELEN>, _>()
+            l.sum::<Rank0, _>()
         }
     }
 
@@ -534,7 +549,7 @@ pub mod _5 {
         let setlen = 3.;
         let y = MLogistical::from_a(y);
         let predict = MLogistical::from_a(cache.a);
-        assert_eq!((y.cost(predict) / setlen).array(), [0.27977654]);
+        assert_eq!((y.cost(predict) / setlen).array(), 0.27977654);
     }
 }
 pub use _5::{Cost, MLogistical, MSquared, Y};
@@ -833,6 +848,24 @@ pub mod _6 {
             fn upward_mda(self, predicted: Self) -> Self::Output;
         }
 
+        #[allow(clippy::let_and_return)]
+        /// Avoids the values of being zero.
+        pub fn non_zero<const ROWS: usize, const COLS: usize>(
+            values: TensorF32<Rank2<ROWS, COLS>>,
+        ) -> TensorF32<Rank2<ROWS, COLS>> {
+            let close_to_zero = values.device().tensor([[1e-38f32; COLS]; ROWS]);
+
+            let select_positive = values.ge(0.);
+            let positive_values = values.clone().maximum(close_to_zero.clone());
+            let values = select_positive.choose(positive_values, values);
+
+            let select_negative = values.le(0.);
+            let negative_values = values.clone().minimum(close_to_zero.negate());
+            let values = select_negative.choose(negative_values, values);
+
+            values
+        }
+
         /// Any layer with a Sigmoid activation can calculate mda = m * ∂J/∂a for the logistical cost function.
         //
         // Note: notice that we have lost a symbolic optimization (and precision).
@@ -851,7 +884,7 @@ pub mod _6 {
             fn upward_mda(self, predicted: Self) -> Self::Output {
                 let _a_neg = predicted.a.clone().negate();
                 let _a = predicted.a.clone();
-                (predicted.a - self.a) / (_a * (_a_neg + 1.))
+                (predicted.a - self.a) / non_zero(_a * (_a_neg + 1.))
             }
         }
 
@@ -862,7 +895,7 @@ pub mod _6 {
             let dev = &device();
             let x: X<4, 2> = dev.sample_normal();
             let y: Y<1, 2> = dev.sample_normal();
-            let layers = layer!(dev, [4, 3, 1]);
+            let layers = layer!(dev, 1., [4, 3, 1]);
             let (cache_up, (cache_down, ())) = layers.clone().downward(x.clone());
             let (layer_up, layer_down) = layers;
             let y = MLogistical::from_a(y);
@@ -872,7 +905,7 @@ pub mod _6 {
             let mda_down = y.upward_mda(yhat);
             assert!(mda_down
                 .array()
-                .approx([[-65.21482, -5.9279017]], (1e-5, 0)));
+                .approx([[-2.504804, -5.1476555,],], (1e-5, 0)));
 
             // sigmoid layer (layer_down)
             #[allow(clippy::let_and_return)]
@@ -897,15 +930,15 @@ pub mod _6 {
 
             assert!(dw1.array().approx(
                 [
-                    [0.57377756, -0.44744247, 0.35314572, -0.021219313],
-                    [-0.0021573375, -0.00041055086, -0.0032351865, -0.001539701],
-                    [0.0, 0.0, 0.0, 0.0]
+                    [0.285591, -0.1627307, 0.23043698, 0.03585002,],
+                    [-0.0011592763, -0.00022061542, -0.001738474, -0.0008273805,],
+                    [0.0, 0.0, 0.0, 0.0,],
                 ],
                 (1e-7, 0)
             ));
             assert!(db1
                 .array()
-                .approx([0.70517296, -0.0025134084, 0.0], (1e-7, 0)));
+                .approx([0.3470378, -0.0013506162, 0.0,], (1e-7, 0)));
         }
 
         pub type Wb<const NODELEN: usize, const FEATLEN: usize> =
@@ -955,7 +988,7 @@ pub mod _6 {
                 caches: (Self::X, (Self::Cache, Self::LowerCaches)),
             ) -> Self::Output
             where
-                Expect: Cost<LOWEST_NODELEN>
+                Expect: Cost
                     + UpwardJA<LOWEST_NODELEN, SETLEN, Output = Mda<LOWEST_NODELEN, SETLEN>>
                     + WrapA<LOWEST_NODELEN, SETLEN>
                     + Clone;
@@ -992,7 +1025,7 @@ pub mod _6 {
                 caches: (Self::X, (Self::Cache, Self::LowerCaches)),
             ) -> Self::Output
             where
-                Expect: Cost<NODELEN>
+                Expect: Cost
                     + UpwardJA<NODELEN, SETLEN, Output = Mda<NODELEN, SETLEN>>
                     + WrapA<NODELEN, SETLEN>
                     + Clone,
@@ -1063,7 +1096,7 @@ pub mod _6 {
                 caches: (Self::X, (Self::Cache, Self::LowerCaches)),
             ) -> Self::Output
             where
-                Expect: Cost<LOWEST_NODELEN>
+                Expect: Cost
                     + UpwardJA<LOWEST_NODELEN, SETLEN, Output = Mda<LOWEST_NODELEN, SETLEN>>
                     + WrapA<LOWEST_NODELEN, SETLEN>
                     + Clone,
@@ -1131,7 +1164,7 @@ pub mod _6 {
             let dev = &device();
             let x: X<4, 2> = dev.sample_normal();
             let y: Y<1, 2> = dev.sample_normal();
-            let layers = layer!(dev, [4, 3, 1]);
+            let layers = layer!(dev, 1., [4, 3, 1]);
             let caches = layers.clone().downward(x.clone());
             let grads = layers
                 .gradients(MLogistical::from_a(y), (Cache::from_a(x), caches))
@@ -1141,9 +1174,9 @@ pub mod _6 {
             // same values as the previous test
             assert!(grads.0.dw.array().approx(
                 [
-                    [0.57377756, -0.44744247, 0.35314572, -0.021219313],
-                    [-0.0021573375, -0.00041055086, -0.0032351865, -0.001539701],
-                    [0.0, 0.0, 0.0, 0.0]
+                    [0.285591, -0.1627307, 0.23043698, 0.03585002,],
+                    [-0.0011592763, -0.00022061542, -0.001738474, -0.0008273805,],
+                    [0.0, 0.0, 0.0, 0.0,],
                 ],
                 (1e-7, 0)
             ));
@@ -1151,10 +1184,10 @@ pub mod _6 {
                 .0
                 .db
                 .array()
-                .approx([0.70517296, -0.0025134084, 0.0], (1e-7, 0)));
+                .approx([0.3470378, -0.0013506162, 0.0,], (1e-7, 0)));
         }
     }
-    pub use _3::{CleanupGrads, DownUpGrads, Grads, SplitHead, UpwardJA};
+    pub use _3::{non_zero, CleanupGrads, DownUpGrads, Grads, SplitHead, UpwardJA};
 
     /// C01W04PA01 Section 4 - Update Parameters.
     pub mod _4 {
@@ -1200,7 +1233,7 @@ pub mod _6 {
             let dev = &device();
             let x: X<4, 2> = dev.sample_normal();
             let y: Y<1, 2> = dev.sample_normal();
-            let layers = layer!(dev, [4, 3, 1]);
+            let layers = layer!(dev, 1., [4, 3, 1]);
             let caches = layers.clone().downward(x.clone());
             let grads = layers
                 .clone()
@@ -1209,9 +1242,9 @@ pub mod _6 {
 
             assert!(layers.0.w.array().approx(
                 [
-                    [1.480139, -2.7758787, -0.9124922, 1.7183491],
-                    [-0.5694077, -0.19419292, -0.10697466, 1.9388653],
-                    [-0.6224373, 0.039840154, -0.48291135, 1.162031]
+                    [0.7401993, -1.3940384, -0.46163252, 0.8545286,],
+                    [-0.28469577, -0.09709492, -0.053475242, 0.9694384,],
+                    [-0.31121865, 0.019920077, -0.24145567, 0.5810155,],
                 ],
                 (1e-7, 0)
             ));
@@ -1219,14 +1252,14 @@ pub mod _6 {
                 .1
                 .w
                 .array()
-                .approx([[-0.45875955, 0.039989635, 0.39889193]], (1e-7, 0)));
+                .approx([[-0.31857067, 0.019019742, 0.23030037,],], (1e-7, 0)));
         }
     }
     pub use _4::UpdateParameters;
 }
 pub use _6::{
-    CleanupGrads, DownUpGrads, Dzdx, Grads, Mda, Mdz, SplitHead, UpdateParameters, UpwardAZ,
-    UpwardDownZUpA, UpwardJA, UpwardZwb,
+    non_zero, CleanupGrads, DownUpGrads, Dzdx, Grads, Mda, Mdz, SplitHead, UpdateParameters,
+    UpwardAZ, UpwardDownZUpA, UpwardJA, UpwardZwb,
 };
 
 /// C01W04PA01 Part 7 - Conclusion.

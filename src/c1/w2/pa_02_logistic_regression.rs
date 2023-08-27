@@ -7,6 +7,8 @@
 //!
 //! I recommend first watching all of C1W2.
 
+use crate::helpers::_dfdx::*;
+
 /// C01W02PA02 Part 1 - Packages.
 mod _1 {
     // no content
@@ -14,7 +16,7 @@ mod _1 {
 
 /// C01W02PA02 Part 2 - Overview of the Problem Set.
 pub mod _2 {
-    use crate::helpers::_dfdx::*;
+    use super::*;
 
     const TRAIN_FILE: &str =
     "/workspaces/coursera-deep-learning-specialization/r/src/c1/w2/datasets/train_catvnoncat.h5";
@@ -147,9 +149,8 @@ mod _3 {
 
 /// C01W02PA02 Part 4 - Building the Parts of Our Algorithm.
 pub mod _4 {
-    use super::PreparedData;
+    use super::*;
     use crate::c1::w2::pa_01_basics::sigmoid;
-    use crate::helpers::_dfdx::*;
 
     /// C01W02PA02 Part 4 Section 1 - Helper Functions.
     pub mod _1 {
@@ -298,7 +299,7 @@ pub mod _4 {
 
     /// C01W02PA02 Part 4 Section 4 - Optimization.
     pub mod _4 {
-        use dfdx::{tensor::ZerosTensor, tensor_ops::ChooseFrom};
+        use super::*;
 
         use super::{Model, PreparedData, Propagation};
         #[allow(unused_imports)]
@@ -420,6 +421,7 @@ pub use _4::{Model, Optimization, Propagation};
 pub mod _5 {
     use super::_2::*;
     use super::*;
+
     #[allow(unused_imports)]
     use crate::helpers::{Approx, _dfdx::*};
 
@@ -516,7 +518,6 @@ pub mod _6 {
     fn test_train_model_varying_lr() -> anyhow::Result<()> {
         use super::_2::*;
         use super::*;
-        use crate::helpers::_dfdx::*;
 
         let dev = device();
 

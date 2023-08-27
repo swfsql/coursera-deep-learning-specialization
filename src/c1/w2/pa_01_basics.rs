@@ -4,15 +4,21 @@
 //!
 //! I recommend first watching all of C1W2.
 
+use crate::helpers::_dfdx::*;
+
 /// C01W02PA01 Part 1 - Building Basic Functions.
 pub mod _1 {
+    use super::*;
 
     /// C01W02PA01 Part 1 Section 1 - Sigmoid Function.
     pub mod _1 {
+        use super::*;
+
         #[allow(unused_imports)]
-        use crate::helpers::{Approx, _dfdx::*};
+        use crate::helpers::Approx;
 
         pub mod sigmoid_basic_test {
+
             /// Returns sigmoid(x).
             pub fn sigmoid_scalar(x: f32) -> f32 {
                 1. / (1. + f32::exp(-x))
@@ -65,9 +71,8 @@ pub mod _1 {
 
     /// C01W02PA01 Part 1 Section 2 - Sigmoid Gradient.
     pub mod _2 {
-        use super::sigmoid;
         pub use super::_1::X;
-        use crate::helpers::_dfdx::*;
+        use super::*;
 
         const XDSIG: [f32; 3] = [0.19661196, 0.10499363, 0.045176655];
 
@@ -101,7 +106,7 @@ pub mod _1 {
     /// C01W02PA01 Part 1 Section 3 - Reshaping Arrays.
     #[allow(clippy::excessive_precision)]
     pub mod _3 {
-        use crate::helpers::_dfdx::*;
+        use super::*;
 
         #[rustfmt::skip]
         pub const IMAGE: [[[f32; 2]; 3]; 3] = [
@@ -132,8 +137,7 @@ pub mod _1 {
 
     /// C01W02PA01 Part 1 Section 4 - Normalizing Rows.
     pub mod _4 {
-        use crate::helpers::_dfdx::*;
-        use dfdx::tensor_ops::{BroadcastTo, SumTo};
+        use super::*;
 
         const X: [[f32; 3]; 2] = [[0., 3., 4.], [1., 6., 4.]];
         #[allow(clippy::excessive_precision)]
@@ -160,8 +164,10 @@ pub mod _1 {
 
     /// C01W02PA01 Part 1 Section 5 - Broadcasting and the Softmax Function.
     pub mod _5 {
+        use super::*;
+
         #[allow(unused_imports)]
-        use crate::helpers::{Approx, _dfdx::*};
+        use crate::helpers::Approx;
         use dfdx::tensor_ops::{BroadcastTo, SumTo};
 
         #[rustfmt::skip]
@@ -200,10 +206,13 @@ pub mod _1 {
 }
 pub use _1::{normalize_rows, sigmoid, sigmoid_derivative, softmax};
 
+#[allow(unused_imports)]
 /// C01W02PA01 Part 2 - Vectorization.
 pub mod _2 {
+    use super::*;
 
     pub mod _0 {
+        use super::*;
 
         pub const X1: [f32; 15] = [9., 2., 5., 0., 0., 7., 5., 0., 0., 0., 9., 2., 5., 0., 0.];
         pub const X2: [f32; 15] = [9., 2., 2., 9., 0., 9., 2., 5., 0., 0., 9., 2., 5., 0., 0.];
@@ -240,7 +249,7 @@ pub mod _2 {
 
         #[test]
         fn _1() {
-            use crate::helpers::{Approx, _dfdx::*};
+            use crate::helpers::Approx;
             let dev = device();
 
             let x1: TensorF32<Rank1<15>> = dev.tensor(X1);
@@ -272,7 +281,7 @@ pub mod _2 {
 
     /// C01W02PA01 Part 2 Section 1 - Implement the L1 and L2 Loss Functions.
     pub mod _1 {
-        use crate::helpers::_dfdx::*;
+        use super::*;
 
         const YHAT: [f32; 5] = [0.9, 0.2, 0.1, 0.4, 0.9];
         const Y: [f32; 5] = [1., 0., 0., 1., 1.];

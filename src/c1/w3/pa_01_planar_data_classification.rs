@@ -8,6 +8,8 @@
 //!
 //! 3b1b "Neural Networks": https://www.youtube.com/watch?v=aircAruvnKk&list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi
 
+use crate::helpers::_dfdx::*;
+
 /// C01W03PA01 Part 1 - Packages.
 mod _1 {
     // no content
@@ -15,9 +17,9 @@ mod _1 {
 
 /// C01W03PA01 Part 2 - Dataset.
 pub mod _2 {
+    use super::*;
     use crate::c1::w2::pa_02_logistic_regression::PreparedData;
     pub use crate::c1::w3::util::{M_TRAIN, X, XLEN, Y};
-    use crate::helpers::_dfdx::*;
 
     pub fn prepare_data(device: &Device) -> PreparedData<XLEN, M_TRAIN> {
         let xtrain: TensorF32<Rank2<XLEN, M_TRAIN>> = device.tensor(X);
@@ -51,9 +53,9 @@ pub mod _3 {
     #[test]
     fn a() -> anyhow::Result<()> {
         use super::_2::prepare_data;
+        use super::*;
         use crate::c1::w2::pa_02_logistic_regression::{accuracy, Model, PreparedData};
         pub use crate::c1::w3::util::{M_TRAIN, X, XLEN, Y};
-        use crate::helpers::_dfdx::*;
 
         let dev = device();
 
@@ -83,8 +85,10 @@ pub mod _3 {
 
 /// C01W03PA01 Part 4 - Neural Network Model.
 pub mod _4 {
+    use super::*;
+
     #[allow(unused_imports)]
-    use crate::helpers::{Approx, _dfdx::*};
+    use crate::helpers::Approx;
 
     // Note: the python code uses different parameter values for each example,
     // and I originally used the same values as the python code and verified
@@ -133,8 +137,7 @@ pub mod _4 {
 
     /// C01W03PA01 Section 2 - Initialize the Model's Parameters.
     pub mod _2 {
-        use crate::helpers::_dfdx::*;
-        use dfdx::tensor::SampleTensor;
+        use super::*;
 
         // Note: c1::w2::pa_02 had a model weight definition that was different.
         // In there the features were in rows, but here they are in columns.
@@ -261,10 +264,12 @@ pub mod _4 {
         impl<const L1LEN: usize, const L2LEN: usize, const SETLEN: usize> Cache<L1LEN, L2LEN, SETLEN> {
             pub fn cost(self, y: TensorF32<Rank2<L2LEN, SETLEN>>) -> f32 {
                 // loss function L = -(y*log(ŷ) + (1-y)log(1-ŷ))
-                let l1 = y.clone() * self.a2.clone().ln();
+                let l1 = y
+                    .clone()
+                    .dot(self.a2.clone().ln().permute::<_, Axes2<1, 0>>());
                 let l2 = y.clone().negate() + 1.;
                 let l3 = (self.a2.clone().negate() + 1.).ln();
-                let l = (l1 + l2 * l3).negate();
+                let l = (l1 + l2.dot(l3.permute::<_, Axes2<1, 0>>())).negate();
 
                 // cost function J = 1/m sum (L)
                 let j = l.sum::<Rank0, _>() / (SETLEN as f32);

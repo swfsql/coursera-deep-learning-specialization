@@ -21,6 +21,7 @@ pub use dfdx::{
     tensor::{AsArray, OnesTensor, SampleTensor, Tensor, TensorFrom, ZerosTensor},
     tensor_ops::{
         BroadcastTo, ChooseFrom, MeanTo, PermuteTo, RealizeTo, ReshapeTo, SumTo, TryGe, TryGt,
+        TryLe, TryLt,
     },
 };
 pub use dot::Dot;
