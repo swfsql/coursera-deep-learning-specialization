@@ -18,7 +18,7 @@ mod _1 {
 /// C01W03PA01 Part 2 - Dataset.
 pub mod _2 {
     use super::*;
-    use crate::c1::w2::pa_02_logistic_regression::PreparedData;
+    use crate::c1::w2::prelude::PreparedData;
     pub use crate::c1::w3::util::{M_TRAIN, X, XLEN, Y};
 
     pub fn prepare_data(device: &Device) -> PreparedData<XLEN, M_TRAIN> {
@@ -54,7 +54,7 @@ pub mod _3 {
     fn a() -> anyhow::Result<()> {
         use super::_2::prepare_data;
         use super::*;
-        use crate::c1::w2::pa_02_logistic_regression::{accuracy, Model, PreparedData};
+        use crate::c1::w2::prelude::{accuracy, Model, PreparedData};
         pub use crate::c1::w3::util::{M_TRAIN, X, XLEN, Y};
 
         let dev = device();

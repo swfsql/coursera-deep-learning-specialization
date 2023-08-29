@@ -125,33 +125,33 @@ pub mod _3 {
         ///
         /// Example with implicit `Linear`>`Relu` hidden layers and with a final `Linear`>`Sigmoid` final layer
         /// ```rust
-        /// # use coursera_exercises::layer;
+        /// # use coursera_exercises::layerc1;
         /// # use coursera_exercises::c1::w4::pa_01_deep_nn::{Linear, ReLU, Sigmoid, Layer};
         /// # use coursera_exercises::helpers::_dfdx::*;
         /// # let dev = device();
-        /// let s = layer!(&dev, 1., [1, 1]);
-        /// let rs = layer!(&dev, 1., [1, 1, 1]);
-        /// let rrs = layer!(&dev, 1., [1, 1, 1, 1]).flat3();
+        /// let s = layerc1!(&dev, 1., [1, 1]);
+        /// let rs = layerc1!(&dev, 1., [1, 1, 1]);
+        /// let rrs = layerc1!(&dev, 1., [1, 1, 1, 1]).flat3();
         /// ```
         ///
         /// Example where all functions are explicit:
         /// ```rust
-        /// # use coursera_exercises::layer;
+        /// # use coursera_exercises::layerc1;
         /// # use coursera_exercises::c1::w4::pa_01_deep_nn::{Linear, ReLU, Sigmoid, Layer};
         /// # use coursera_exercises::helpers::_dfdx::*;
         /// # let dev = device();
-        /// let s = layer!(&dev, 1., 1, Linear > Sigmoid => [1]);
-        /// let rs = layer!(&dev, 1., 1, Linear > ReLU => [1], Linear > Sigmoid => [1]);
-        /// let rrs = layer!(&dev, 1., 1, Linear > ReLU => [1, 1], Linear > Sigmoid => [1]).flat3();
+        /// let s = layerc1!(&dev, 1., 1, Linear > Sigmoid => [1]);
+        /// let rs = layerc1!(&dev, 1., 1, Linear > ReLU => [1], Linear > Sigmoid => [1]);
+        /// let rrs = layerc1!(&dev, 1., 1, Linear > ReLU => [1, 1], Linear > Sigmoid => [1]).flat3();
         /// ```
         #[allow(unused_macros)]
         #[allow(unused_attributes)]
         #[macro_export]
-        macro_rules! layer {
+        macro_rules! layerc1 {
             // implicit layers creation, hidden layers are Linear>Relu, the last is Linear>Sigmoid
             ($dev:expr, $scalar:expr, [$head_layer_node:literal, $($tail_layers_nodes:literal),*]) => {
                 // separates the feature and forward to another macro call
-                $crate::layer!($dev, auto, $scalar, $head_layer_node, [$($tail_layers_nodes),*])
+                $crate::layerc1!($dev, auto, $scalar, $head_layer_node, [$($tail_layers_nodes),*])
             };
 
             // explicit single layer creation
@@ -172,10 +172,10 @@ pub mod _3 {
                         // creates a single implicit layer
                         type _Linear = $crate::c1::w4::pa_01_deep_nn::Linear;
                         type _Relu = $crate::c1::w4::pa_01_deep_nn::ReLU;
-                        $crate::layer!($dev, $scalar, $node_features, _Linear>_Relu => $head_layer_node)
+                        $crate::layerc1!($dev, $scalar, $node_features, _Linear>_Relu => $head_layer_node)
                     },
                     // recursive macro call on the remaining layers, forwarding the last "feature" information
-                    $crate::layer!($dev, auto, $scalar, $head_layer_node, [$($tail_layers_nodes),*])
+                    $crate::layerc1!($dev, auto, $scalar, $head_layer_node, [$($tail_layers_nodes),*])
                 )
             };
 
@@ -183,9 +183,9 @@ pub mod _3 {
             ($dev:expr, $scalar:expr, $node_features:literal, $z:ty>$a:ty => [$head_layer_node:literal, $($tail_layers_nodes:literal),*] $($other:tt)*) => {
                 (
                     // creates a single layer
-                    $crate::layer!($dev, $scalar, $node_features, $z>$a => $head_layer_node),
+                    $crate::layerc1!($dev, $scalar, $node_features, $z>$a => $head_layer_node),
                     // recursive macro call on the remaining layers, forwarding the last "feature" information
-                    $crate::layer!($dev, $scalar, $head_layer_node, $z>$a => [$($tail_layers_nodes),*] $($other)*)
+                    $crate::layerc1!($dev, $scalar, $head_layer_node, $z>$a => [$($tail_layers_nodes),*] $($other)*)
                 )
             };
 
@@ -195,48 +195,48 @@ pub mod _3 {
                     // creates a single implicit layer (which is the last)
                     type _Linear = $crate::c1::w4::pa_01_deep_nn::Linear;
                     type _Sigmoid = $crate::c1::w4::pa_01_deep_nn::Sigmoid;
-                    $crate::layer!($dev, $scalar, $node_features, _Linear>_Sigmoid => $last_layer_node)
+                    $crate::layerc1!($dev, $scalar, $node_features, _Linear>_Sigmoid => $last_layer_node)
                 }
             };
 
             // explicit last layer creation (with no continuation)
             ($dev:expr, $scalar:expr, $node_features:literal, $z:ty>$a:ty => [$last_layer_node:literal]) => {
                 // returns the layer
-                $crate::layer!($dev, $scalar, $node_features, $z>$a => $last_layer_node)
+                $crate::layerc1!($dev, $scalar, $node_features, $z>$a => $last_layer_node)
             };
 
             // explicit "last" layer creation (with a continuation)
             ($dev:expr, $scalar:expr, $node_features:literal, $z:ty>$a:ty => [$last_layer_node:literal] $($other:tt)*) => {
                 (
                     // returns the layer
-                    $crate::layer!($dev, $scalar, $node_features, $z>$a => $last_layer_node),
+                    $crate::layerc1!($dev, $scalar, $node_features, $z>$a => $last_layer_node),
                     // makes a brand new macro call on whatever arguments remains,
                     // forwarding the last "feature" information
-                    $crate::layer!($dev, $scalar, $last_layer_node $($other)*)
+                    $crate::layerc1!($dev, $scalar, $last_layer_node $($other)*)
                 )
             };
         }
-        pub(crate) use layer;
+        pub(crate) use layerc1;
 
         #[test]
         fn test_layers() {
             let dev = device();
-            let rs = layer!(&dev, 1., [5, 4, 3]);
+            let rs = layerc1!(&dev, 1., [5, 4, 3]);
             let _r1: Layer<5, 4, Linear, ReLU> = rs.0;
             let _s2: Layer<4, 3, Linear, Sigmoid> = rs.1;
 
             // (nothing to assert)
 
             // note: I also created some helpers for tuple flattening, such as in:
-            let (_, _, _) = layer!(&dev, 1., [1, 1, 1, 1]).flat3();
+            let (_, _, _) = layerc1!(&dev, 1., [1, 1, 1, 1]).flat3();
             // without it:
-            let (_, (_, _)) = layer!(&dev, 1., [1, 1, 1, 1]);
+            let (_, (_, _)) = layerc1!(&dev, 1., [1, 1, 1, 1]);
 
             // Note: for this lesson I decided to call "forward" as "downward", and
             // "backward" as "upward".
             //
             // notice the type of the generated layers:
-            let (_, (_, (_, (_, (_, _))))) = layer!(&dev, 1., [1, 1, 1, 1, 1, 1, 1]);
+            let (_, (_, (_, (_, (_, _))))) = layerc1!(&dev, 1., [1, 1, 1, 1, 1, 1, 1]);
             // this is similar to being on the top of some stairs, and then you
             // throw the data "downwards" and it goes kicking down the starts.
             // Then you start pulling it "upwards" (imagine you have a rod),
@@ -247,10 +247,10 @@ pub mod _3 {
             // decided to see where the abstractions that I thought could take me.
         }
     }
-    pub(crate) use _2::layer;
+    pub(crate) use _2::layerc1;
 }
 #[allow(unused_imports)]
-pub(crate) use _3::layer;
+pub(crate) use _3::layerc1;
 pub use _3::{Layer, Linear, ReLU, Sigmoid, Tanh, B, W};
 
 /// C01W04PA01 Part 4 - Forward Propagation Module.
@@ -284,7 +284,7 @@ pub mod _4 {
         #[test]
         fn test_downward_z() {
             let dev = &device();
-            let linear = layer!(dev, 1., [3, 1]);
+            let linear = layerc1!(dev, 1., [3, 1]);
             let x: X<3, 2> = dev.sample_normal();
             let z = linear.downward_z(x);
             assert!(z.array().approx([[-0.15656424, -2.1278346,]], (1e-6, 0)));
@@ -360,6 +360,7 @@ pub mod _4 {
         pub trait WrapA<const NODELEN: usize, const SETLEN: usize> {
             fn ref_a(&self) -> &A<NODELEN, SETLEN>;
             fn from_a(a: A<NODELEN, SETLEN>) -> Self;
+            fn set_a(&mut self, a: A<NODELEN, SETLEN>);
         }
 
         impl<const NODELEN: usize, const SETLEN: usize> WrapA<NODELEN, SETLEN> for Cache<NODELEN, SETLEN> {
@@ -369,6 +370,9 @@ pub mod _4 {
             fn from_a(a: A<NODELEN, SETLEN>) -> Self {
                 Self { a }
             }
+            fn set_a(&mut self, a: A<NODELEN, SETLEN>) {
+                self.a = a;
+            }
         }
 
         #[test]
@@ -376,11 +380,11 @@ pub mod _4 {
             let dev = &device();
             let x: X<3, 2> = dev.sample_normal();
 
-            let sigmoid = layer!(dev, 1., 3, Linear > Sigmoid => [1]);
+            let sigmoid = layerc1!(dev, 1., 3, Linear > Sigmoid => [1]);
             let cache = sigmoid.downward_za(x.clone());
             assert!(cache.a.array().approx([[0.1271824, 0.44590577]], (1e-7, 0)));
 
-            let relu = layer!(dev, 1., 3, Linear > ReLU => [1]);
+            let relu = layerc1!(dev, 1., 3, Linear > ReLU => [1]);
             let cache = relu.downward_za(x);
             assert!(cache.a.array().approx([[0.6293237, 0.0]], (1e-6, 0)));
         }
@@ -399,7 +403,9 @@ pub mod _4 {
             type Output;
 
             /// Makes the downward call for a single layer, or make many calls for a stack of layers.
-            fn downward(self, x: Self::Input) -> Self::Output;
+            fn downward<CostType>(self, x: Self::Input, cost_setup: &mut CostType) -> Self::Output
+            where
+                CostType: CostSetup;
         }
 
         /// Downward call for a single layer.
@@ -411,7 +417,13 @@ pub mod _4 {
             type Input = X<FEATLEN, SETLEN>;
             type Output = (<Self as DownwardZA<FEATLEN, NODELEN, SETLEN>>::Output, ());
 
-            fn downward(self, x: Self::Input) -> Self::Output {
+            fn downward<CostType>(self, x: Self::Input, cost_setup: &mut CostType) -> Self::Output
+            where
+                CostType: CostSetup,
+            {
+                // make any necessary changes to the cost structure
+                cost_setup.downward(&self);
+
                 (self.downward_za(x), ())
             }
         }
@@ -429,10 +441,19 @@ pub mod _4 {
                 Lower::Output,
             );
 
-            fn downward(self, x: Self::Input) -> Self::Output {
+            fn downward<CostType>(self, x: Self::Input, cost_setup: &mut CostType) -> Self::Output
+            where
+                CostType: CostSetup,
+            {
+                // make any necessary changes to the cost structure
+                cost_setup.downward(&self.0);
+
                 let current_cache = self.0.downward_za(x);
                 let x_lower: X<NODELEN, SETLEN> = current_cache.ref_a().clone();
-                (current_cache, self.1.downward(x_lower))
+                (
+                    current_cache,
+                    self.1.downward::<CostType>(x_lower, cost_setup),
+                )
             }
         }
 
@@ -440,12 +461,10 @@ pub mod _4 {
         fn test_l_layers_downward() {
             let dev = &device();
             let x: X<5, 4> = dev.sample_normal();
-            let layers = layer!(dev, 1., [5, 4, 3, 1]);
-            let caches = layers.downward(x);
+            let layers = layerc1!(dev, 1., [5, 4, 3, 1]);
+            let caches = layers.downward(x, &mut MLogistical::default());
             assert!(caches
-                .flat4()
-                .2
-                .a
+                .last_a()
                 .array()
                 .approx([[0.5010462, 0.57347196, 0.5333355, 0.5255862,],], (1e-6, 0)));
         }
@@ -459,9 +478,58 @@ pub mod _5 {
     use super::*;
     pub type Y<const NODELEN: usize, const SETLEN: usize> = TensorF32<Rank2<NODELEN, SETLEN>>;
 
-    pub trait Cost {
+    pub trait CostSetup {
+        /// M * Cost between the generated prediction and the given expected values.
+        fn mcost<const NODELEN: usize, const SETLEN: usize>(
+            &self,
+            expect: A<NODELEN, SETLEN>,
+            predict: A<NODELEN, SETLEN>,
+        ) -> TensorF32<Rank1<NODELEN>>;
+
         /// Cost between the generated prediction and the given expected values.
-        fn cost(self, predict: Self) -> TensorF32<Rank0>;
+        fn cost<const NODELEN: usize, const SETLEN: usize>(
+            &self,
+            expect: A<NODELEN, SETLEN>,
+            predict: A<NODELEN, SETLEN>,
+        ) -> TensorF32<Rank0>;
+
+        /// Intermediate cost calculation during the downward pass.  
+        /// That calculation can make use of w and b.
+        ///
+        /// By default, there is no intermediate calculation.
+        fn downward<const NODELEN: usize, const FEATLEN: usize, Z, A>(
+            &mut self,
+            _layer: &Layer<FEATLEN, NODELEN, Z, A>,
+        ) {
+        }
+
+        /// Optional direct additive term for ∂J/∂w and ∂J/∂b.
+        ///
+        /// Ie. For when not only each (w, b) affects J by going Z->A, but if they also additively and directly affects J,
+        /// then their gradients have some additive calculation.
+        ///
+        /// By default, the J has no additive direct effect from w and b during the downward pass
+        /// and so there is no additive term for the upward pass.
+        fn direct_upward_dwdb<
+            const NODELEN: usize,
+            const FEATLEN: usize,
+            const SETLEN: usize,
+            Z,
+            A,
+        >(
+            &self,
+            _layer: &Layer<FEATLEN, NODELEN, Z, A>,
+        ) -> Option<Wb<NODELEN, FEATLEN>> {
+            None
+        }
+
+        fn update_params<const NODELEN: usize, const FEATLEN: usize, Z, A>(
+            &self,
+            layer: Layer<FEATLEN, NODELEN, Z, A>,
+            gradient: Grads<NODELEN, FEATLEN>,
+        ) -> Layer<FEATLEN, NODELEN, Z, A>;
+
+        fn new_train_step(&mut self) {}
     }
 
     /// Logistical cost function.
@@ -471,38 +539,62 @@ pub mod _5 {
     ///
     /// Note that the cost function is multiplied by `m` (SETLEN).
     #[derive(Clone, Debug)]
-    pub struct MLogistical<const NODELEN: usize, const SETLEN: usize> {
-        pub a: A<NODELEN, SETLEN>,
+    pub struct MLogistical {
+        pub learning_rate: f32,
+    }
+
+    impl Default for MLogistical {
+        fn default() -> Self {
+            Self { learning_rate: 1. }
+        }
+    }
+
+    impl MLogistical {
+        pub fn new(learning_rate: f32) -> Self {
+            Self { learning_rate }
+        }
     }
 
     #[allow(clippy::let_and_return)]
     /// Logistical cost.
-    impl<const NODELEN: usize, const SETLEN: usize> Cost for MLogistical<NODELEN, SETLEN> {
-        fn cost(self, predict: Self) -> TensorF32<Rank0> {
-            let y = self.a;
-            let yhat = predict.a;
-
+    impl CostSetup for MLogistical {
+        /// M * Cost function m * J = sum (L).
+        fn mcost<const NODELEN: usize, const SETLEN: usize>(
+            &self,
+            expect: A<NODELEN, SETLEN>,
+            predict: A<NODELEN, SETLEN>,
+        ) -> TensorF32<Rank1<NODELEN>> {
             // loss function L = -(y*log(ŷ) + (1-y)log(1-ŷ))
-            let l1 = y
+            let l1 = expect
                 .clone()
-                .dot((non_zero(yhat.clone()).ln()).permute::<_, Axes2<1, 0>>());
-            let l2 = y.clone().negate() + 1.;
-            let l3 = non_zero(yhat.negate() + 1.).ln();
+                .dot((non_zero(predict.clone()).ln()).permute::<_, Axes2<1, 0>>());
+            let l2 = expect.clone().negate() + 1.;
+            let l3 = non_zero(predict.negate() + 1.).ln();
             let l = (l1 + l2.dot(l3.permute::<_, Axes2<1, 0>>())).negate();
 
-            // cost function m * J = sum (L)
-            l.sum::<Rank0, _>()
+            // M * cost function m * J = sum (L)
+            l.sum::<Rank1<NODELEN>, Axis<1>>()
         }
-    }
 
-    impl<const NODELEN: usize, const SETLEN: usize> WrapA<NODELEN, SETLEN>
-        for MLogistical<NODELEN, SETLEN>
-    {
-        fn ref_a(&self) -> &A<NODELEN, SETLEN> {
-            &self.a
+        /// Cost function J = sum (L) / m.
+        fn cost<const NODELEN: usize, const SETLEN: usize>(
+            &self,
+            expect: A<NODELEN, SETLEN>,
+            predict: A<NODELEN, SETLEN>,
+        ) -> TensorF32<Rank0> {
+            let l = self.mcost(expect, predict);
+            // cost function J = sum (L) / m
+            l.sum::<Rank0, _>() / (SETLEN as f32)
         }
-        fn from_a(a: A<NODELEN, SETLEN>) -> Self {
-            Self { a }
+
+        fn update_params<const NODELEN: usize, const FEATLEN: usize, Z, A>(
+            &self,
+            mut layer: Layer<FEATLEN, NODELEN, Z, A>,
+            gradient: Grads<NODELEN, FEATLEN>,
+        ) -> Layer<FEATLEN, NODELEN, Z, A> {
+            layer.w = layer.w - gradient.dw * self.learning_rate;
+            layer.b = layer.b - (gradient.db * self.learning_rate).reshape::<Rank2<NODELEN, 1>>();
+            layer
         }
     }
 
@@ -513,29 +605,51 @@ pub mod _5 {
     ///
     /// Note that the cost function is multiplied by `m` (SETLEN).
     #[derive(Clone, Debug)]
-    pub struct MSquared<const NODELEN: usize, const SETLEN: usize> {
-        pub a: A<NODELEN, SETLEN>,
+    pub struct MSquared {
+        pub learning_rate: f32,
+    }
+
+    impl Default for MSquared {
+        fn default() -> Self {
+            Self { learning_rate: 1. }
+        }
     }
 
     /// Squared cost.
-    impl<const NODELEN: usize, const SETLEN: usize> Cost for MSquared<NODELEN, SETLEN> {
-        fn cost(self, predict: Self) -> TensorF32<Rank0> {
+    impl CostSetup for MSquared {
+        /// M * Cost function m * J = sum (L).
+        fn mcost<const NODELEN: usize, const SETLEN: usize>(
+            &self,
+            expect: A<NODELEN, SETLEN>,
+            predict: A<NODELEN, SETLEN>,
+        ) -> TensorF32<Rank1<NODELEN>> {
             // loss function L = (ŷ-y)²
-            let l = (predict.a - self.a).square();
+            let l = (predict - expect).square();
 
-            // cost function m * J = sum (L)
-            l.sum::<Rank0, _>()
+            // M * cost function m * J = sum (L)
+            l.sum::<Rank1<NODELEN>, Axis<1>>()
         }
-    }
 
-    impl<const NODELEN: usize, const SETLEN: usize> WrapA<NODELEN, SETLEN>
-        for MSquared<NODELEN, SETLEN>
-    {
-        fn ref_a(&self) -> &A<NODELEN, SETLEN> {
-            &self.a
+        /// Cost function J = sum (L) / m.
+        fn cost<const NODELEN: usize, const SETLEN: usize>(
+            &self,
+            expect: A<NODELEN, SETLEN>,
+            predict: A<NODELEN, SETLEN>,
+        ) -> TensorF32<Rank0> {
+            let l = self.mcost(expect, predict);
+
+            // cost function J = sum (L) / m
+            l.sum::<Rank0, _>() / (SETLEN as f32)
         }
-        fn from_a(a: A<NODELEN, SETLEN>) -> Self {
-            Self { a }
+
+        fn update_params<const NODELEN: usize, const FEATLEN: usize, Z, A>(
+            &self,
+            mut layer: Layer<FEATLEN, NODELEN, Z, A>,
+            gradient: Grads<NODELEN, FEATLEN>,
+        ) -> Layer<FEATLEN, NODELEN, Z, A> {
+            layer.w = layer.w - gradient.dw * self.learning_rate;
+            layer.b = layer.b - (gradient.db * self.learning_rate).reshape::<Rank2<NODELEN, 1>>();
+            layer
         }
     }
 
@@ -546,13 +660,11 @@ pub mod _5 {
         let cache = Cache {
             a: dev.tensor([[0.8, 0.9, 0.4]]),
         };
-        let setlen = 3.;
-        let y = MLogistical::from_a(y);
-        let predict = MLogistical::from_a(cache.a);
-        assert_eq!((y.cost(predict) / setlen).array(), 0.27977654);
+        let cost_setup = MLogistical::default();
+        assert_eq!((cost_setup.cost(y, cache.a)).array(), 0.27977654);
     }
 }
-pub use _5::{Cost, MLogistical, MSquared, Y};
+pub use _5::{CostSetup, MLogistical, MSquared, Y};
 
 /// C01W04PA01 Part 6 - Backward Propagation Module.
 pub mod _6 {
@@ -715,10 +827,6 @@ pub mod _6 {
             /// mdz = cache.a * (1 - cache.a) * mda.
             type Output<const SETLEN: usize> = Mdz<NODELEN, SETLEN>;
 
-            // TODO: I thought the formula was cache.a * (1 - cache.a), instead of using sigmoid
-            // (because the cache.a already *is* the sigmoid application)
-            // TODO: compare with previous lessons
-
             /// ∂a/∂z = σ'(z) = e^-z / (1 + e^-z)² = σ(z) * (1 - σ(z)) = cache.a * (1 - cache.a).
             ///
             /// mdz = m * ∂J/∂z = m * ∂a/∂z * ∂J/∂a = cache.a * (1 - cache.a) * mda
@@ -845,7 +953,11 @@ pub mod _6 {
             type Output;
 
             /// mda = m * ∂J/∂a.
-            fn upward_mda(self, predicted: Self) -> Self::Output;
+            fn upward_mda(
+                &self,
+                expect: A<NODELEN, SETLEN>,
+                predict: A<NODELEN, SETLEN>,
+            ) -> Self::Output;
         }
 
         #[allow(clippy::let_and_return)]
@@ -874,17 +986,19 @@ pub mod _6 {
         // m * ∂J/∂z = ∂a/∂z * ∂J/∂a, we could simplify the formula from a(1-a) * (a-y)/(a(1-a)) to just (a-y).
         // In that case we would be merging two upward (inner) functions, for mda and mdz (skipping mda).
         // But that is only for logistical regression, and for a sigmoid activation as the lowest activation.
-        impl<const NODELEN: usize, const SETLEN: usize> UpwardJA<NODELEN, SETLEN>
-            for MLogistical<NODELEN, SETLEN>
-        {
+        impl<const NODELEN: usize, const SETLEN: usize> UpwardJA<NODELEN, SETLEN> for MLogistical {
             /// mda = m * ∂J/∂a.
             type Output = Mda<NODELEN, SETLEN>;
 
             /// mda = m * ∂J/∂a = (1-y)/(1-a) - y/a = (a-y)/(a(1-a)).
-            fn upward_mda(self, predicted: Self) -> Self::Output {
-                let _a_neg = predicted.a.clone().negate();
-                let _a = predicted.a.clone();
-                (predicted.a - self.a) / non_zero(_a * (_a_neg + 1.))
+            fn upward_mda(
+                &self,
+                expect: A<NODELEN, SETLEN>,
+                predict: A<NODELEN, SETLEN>,
+            ) -> Self::Output {
+                let _a_neg = predict.clone().negate();
+                let _a = predict.clone();
+                (predict - expect) / non_zero(_a * (_a_neg + 1.))
             }
         }
 
@@ -895,14 +1009,14 @@ pub mod _6 {
             let dev = &device();
             let x: X<4, 2> = dev.sample_normal();
             let y: Y<1, 2> = dev.sample_normal();
-            let layers = layer!(dev, 1., [4, 3, 1]);
-            let (cache_up, (cache_down, ())) = layers.clone().downward(x.clone());
+            let layers = layerc1!(dev, 1., [4, 3, 1]);
+            let mut cost_setup = MLogistical::default();
+            let (cache_up, (cache_down, ())) = layers.clone().downward(x.clone(), &mut cost_setup);
             let (layer_up, layer_down) = layers;
-            let y = MLogistical::from_a(y);
-            let yhat = MLogistical::from_a(cache_down.a.clone());
+            let yhat = cache_down.a.clone();
 
             // layer_down sigmoid (from loss)
-            let mda_down = y.upward_mda(yhat);
+            let mda_down = cost_setup.upward_mda(y, yhat);
             assert!(mda_down
                 .array()
                 .approx([[-2.504804, -5.1476555,],], (1e-5, 0)));
@@ -961,6 +1075,28 @@ pub mod _6 {
             }
         }
 
+        pub trait LastA {
+            type Last;
+            fn last_a(&self) -> &Self::Last;
+        }
+
+        impl<A, B> LastA for (A, B)
+        where
+            B: LastA,
+        {
+            type Last = <B as LastA>::Last;
+            fn last_a(&self) -> &Self::Last {
+                self.1.last_a()
+            }
+        }
+
+        impl<const NODELEN: usize, const SETLEN: usize> LastA for (Cache<NODELEN, SETLEN>, ()) {
+            type Last = A<NODELEN, SETLEN>;
+            fn last_a(&self) -> &Self::Last {
+                self.0.ref_a()
+            }
+        }
+
         pub struct Grads<const NODELEN: usize, const FEATLEN: usize> {
             pub dw: W<NODELEN, FEATLEN>,
             pub db: TensorF32<Rank1<NODELEN>>,
@@ -982,27 +1118,27 @@ pub mod _6 {
             const NODELEN: usize;
 
             /// Makes the initial downward call (for access) and then pulls back up, getting the gradients.
-            fn gradients<Expect>(
+            fn gradients<CostType>(
                 self,
-                expect: Expect,
+                expect: A<LOWEST_NODELEN, SETLEN>,
+                cost_setup: &mut CostType,
                 caches: (Self::X, (Self::Cache, Self::LowerCaches)),
             ) -> Self::Output
             where
-                Expect: Cost
+                CostType: CostSetup
                     + UpwardJA<LOWEST_NODELEN, SETLEN, Output = Mda<LOWEST_NODELEN, SETLEN>>
-                    + WrapA<LOWEST_NODELEN, SETLEN>
                     + Clone;
         }
 
         /// Down-Up call for the lowest single layer.
-        impl<const NODELEN: usize, const FEATLEN: usize, const SETLEN: usize, Z, A>
-            DownUpGrads<NODELEN, SETLEN> for Layer<FEATLEN, NODELEN, Z, A>
+        impl<const NODELEN: usize, const FEATLEN: usize, const SETLEN: usize, Z, Act>
+            DownUpGrads<NODELEN, SETLEN> for Layer<FEATLEN, NODELEN, Z, Act>
         where
-            Layer<FEATLEN, NODELEN, Z, A>: DownwardZA<FEATLEN, NODELEN, SETLEN>,
+            Layer<FEATLEN, NODELEN, Z, Act>: DownwardZA<FEATLEN, NODELEN, SETLEN>,
             Self: UpwardAZ<NODELEN, Output<SETLEN> = Mdz<NODELEN, SETLEN>>
                 + UpwardZwb<FEATLEN, NODELEN, Output = Wb<NODELEN, FEATLEN>>
                 + UpwardDownZUpA<FEATLEN, Output<SETLEN> = Mda<NODELEN, FEATLEN>>,
-            A: Clone,
+            Act: Clone,
             Z: Clone,
         {
             /// NODELEN for the lowest layer. That is the length of ŷ.
@@ -1019,29 +1155,38 @@ pub mod _6 {
 
             /// Compares the prediction with the expected result, then calculates the gradients (dw, db) for the lowest layer,
             /// and also the mda for the layer above it.
-            fn gradients<Expect>(
+            fn gradients<CostType>(
                 self,
-                expect: Expect,
+                expect: A<NODELEN, SETLEN>,
+                cost_setup: &mut CostType,
                 caches: (Self::X, (Self::Cache, Self::LowerCaches)),
             ) -> Self::Output
             where
-                Expect: Cost
-                    + UpwardJA<NODELEN, SETLEN, Output = Mda<NODELEN, SETLEN>>
-                    + WrapA<NODELEN, SETLEN>
-                    + Clone,
+                CostType:
+                    CostSetup + UpwardJA<NODELEN, SETLEN, Output = Mda<NODELEN, SETLEN>> + Clone,
             {
                 let (x, (cache, ())) = caches;
 
+                // last cost downward intermediate calculation.
+                cost_setup.downward(&self);
+
                 // calculates m * ∂J/∂a for the current (lowest) layer
                 // this calculation is done directly from the derivative of the cost function
-                let predict = Expect::from_a(cache.clone().a);
-                let mda = expect.clone().upward_mda(predict);
+                let mda = cost_setup.upward_mda(expect.clone(), cache.clone().a);
 
                 // get m * ∂J/∂z for the current (lowest) layer
                 let mdz = self.clone().upward_mdz(cache.clone(), mda);
 
                 // calculates the gradients (∂J/∂w, ∂J/∂b) for the current (lowest) layer
-                let (dw, db) = self.clone().upward_dw_db(x.clone(), mdz.clone());
+                let (mut dw, mut db) = self.clone().upward_dw_db(x.clone(), mdz.clone());
+
+                // optional additive dw, db term
+                if let Some((dw2, db2)) =
+                    cost_setup.direct_upward_dwdb::<NODELEN, FEATLEN, SETLEN, _, _>(&self)
+                {
+                    dw = dw + dw2;
+                    db = db + db2;
+                }
 
                 // calculates the m * ∂J/∂a for the layer above, so the layer above can also have it's m * ∂J/∂a
                 let dzda = self.clone().upward_dzdx(x.clone());
@@ -1058,10 +1203,10 @@ pub mod _6 {
                 const NODELEN: usize,
                 const SETLEN: usize,
                 Z,
-                A,
-            > DownUpGrads<LOWEST_NODELEN, SETLEN> for (Layer<FEATLEN, NODELEN, Z, A>, Lower)
+                Act,
+            > DownUpGrads<LOWEST_NODELEN, SETLEN> for (Layer<FEATLEN, NODELEN, Z, Act>, Lower)
         where
-            Layer<FEATLEN, NODELEN, Z, A>: Clone
+            Layer<FEATLEN, NODELEN, Z, Act>: Clone
                 + UpwardAZ<NODELEN, Output<SETLEN> = Mdz<NODELEN, SETLEN>>
                 + UpwardZwb<FEATLEN, NODELEN, Output = Wb<NODELEN, FEATLEN>>
                 + UpwardDownZUpA<FEATLEN, Output<SETLEN> = Mda<NODELEN, FEATLEN>>,
@@ -1090,28 +1235,32 @@ pub mod _6 {
 
             /// Calls layers below so that the initial m * ∂J/∂a gets calculated, then starts producing gradients (dw, db)
             /// while propagating back up.
-            fn gradients<Expect>(
+            fn gradients<CostType>(
                 self,
-                expect: Expect,
+                expect: A<LOWEST_NODELEN, SETLEN>,
+                cost_setup: &mut CostType,
                 caches: (Self::X, (Self::Cache, Self::LowerCaches)),
             ) -> Self::Output
             where
-                Expect: Cost
+                CostType: CostSetup
                     + UpwardJA<LOWEST_NODELEN, SETLEN, Output = Mda<LOWEST_NODELEN, SETLEN>>
-                    + WrapA<LOWEST_NODELEN, SETLEN>
                     + Clone,
             {
+                // current layer
+                let layer = self.0;
+
                 let (x, (cache, lower_caches)) = caches;
                 let (lower_cache_head, lower_cache_tail) = lower_caches.split_head();
+
+                // cost downward intermediate calculation.
+                cost_setup.downward(&layer);
 
                 // recursive call to lower lanes
                 let lower_outputs = self.1.gradients(
                     expect,
+                    cost_setup,
                     (cache.clone(), (lower_cache_head, lower_cache_tail)),
                 );
-
-                // current layer calculations
-                let layer = self.0;
 
                 // access information from the layer from below
                 let (lower_head, lower_tail) = lower_outputs.split_head();
@@ -1123,7 +1272,15 @@ pub mod _6 {
                 let mdz = layer.clone().upward_mdz(cache.clone(), mda.clone());
 
                 // calculates the gradients (∂J/∂w, ∂J/∂b) for the current layer
-                let (dw, db) = layer.clone().upward_dw_db(x.clone(), mdz.clone());
+                let (mut dw, mut db) = layer.clone().upward_dw_db(x.clone(), mdz.clone());
+
+                // optional additive dw, db term
+                if let Some((dw2, db2)) =
+                    cost_setup.direct_upward_dwdb::<NODELEN, FEATLEN, SETLEN, _, _>(&layer)
+                {
+                    dw = dw + dw2;
+                    db = db + db2;
+                }
 
                 // calculates the m * ∂J/∂a for the layer above, so the layer above can also have it's m * ∂J/∂a.
                 let dzda = layer.clone().upward_dzdx(x.clone());
@@ -1164,10 +1321,11 @@ pub mod _6 {
             let dev = &device();
             let x: X<4, 2> = dev.sample_normal();
             let y: Y<1, 2> = dev.sample_normal();
-            let layers = layer!(dev, 1., [4, 3, 1]);
-            let caches = layers.clone().downward(x.clone());
+            let layers = layerc1!(dev, 1., [4, 3, 1]);
+            let mut cost_setup = MLogistical::default();
+            let caches = layers.clone().downward(x.clone(), &mut cost_setup);
             let grads = layers
-                .gradients(MLogistical::from_a(y), (Cache::from_a(x), caches))
+                .gradients(y, &mut cost_setup, (Cache::from_a(x), caches))
                 .remove_mdas()
                 .flat3();
 
@@ -1187,7 +1345,7 @@ pub mod _6 {
                 .approx([0.3470378, -0.0013506162, 0.0,], (1e-7, 0)));
         }
     }
-    pub use _3::{non_zero, CleanupGrads, DownUpGrads, Grads, SplitHead, UpwardJA};
+    pub use _3::{non_zero, CleanupGrads, DownUpGrads, Grads, LastA, SplitHead, UpwardJA, Wb};
 
     /// C01W04PA01 Section 4 - Update Parameters.
     pub mod _4 {
@@ -1196,16 +1354,20 @@ pub mod _6 {
         /// Recursively update the parameters.
         pub trait UpdateParameters: Sized {
             type Grads;
-            fn update_params(self, grads: Self::Grads, learning_rate: f32) -> Self;
+            fn update_params<CostType>(self, grads: Self::Grads, cost_setup: &CostType) -> Self
+            where
+                CostType: CostSetup;
         }
 
         impl<const NODELEN: usize, const FEATLEN: usize, Z, A> UpdateParameters
             for Layer<FEATLEN, NODELEN, Z, A>
         {
             type Grads = (Grads<NODELEN, FEATLEN>, ());
-            fn update_params(mut self, grads: Self::Grads, learning_rate: f32) -> Self {
-                self.w = self.w - grads.0.dw * learning_rate;
-                self.b = self.b - (grads.0.db * learning_rate).reshape::<Rank2<NODELEN, 1>>();
+            fn update_params<CostType>(mut self, grads: Self::Grads, cost_setup: &CostType) -> Self
+            where
+                CostType: CostSetup,
+            {
+                self = cost_setup.update_params(self, grads.0);
                 self
             }
         }
@@ -1216,14 +1378,16 @@ pub mod _6 {
             Lower: UpdateParameters,
         {
             type Grads = (Grads<NODELEN, FEATLEN>, Lower::Grads);
-            fn update_params(
+            fn update_params<CostType>(
                 mut self,
                 (grads, lower_grads): Self::Grads,
-                learning_rate: f32,
-            ) -> Self {
-                self.0.w = self.0.w - grads.dw * learning_rate;
-                self.0.b = self.0.b - (grads.db * learning_rate).reshape::<Rank2<NODELEN, 1>>();
-                let lower = self.1.update_params(lower_grads, learning_rate);
+                cost_setup: &CostType,
+            ) -> Self
+            where
+                CostType: CostSetup,
+            {
+                self.0 = cost_setup.update_params(self.0, grads);
+                let lower = self.1.update_params(lower_grads, cost_setup);
                 (self.0, lower)
             }
         }
@@ -1233,12 +1397,13 @@ pub mod _6 {
             let dev = &device();
             let x: X<4, 2> = dev.sample_normal();
             let y: Y<1, 2> = dev.sample_normal();
-            let layers = layer!(dev, 1., [4, 3, 1]);
-            let caches = layers.clone().downward(x.clone());
+            let layers = layerc1!(dev, 1., [4, 3, 1]);
+            let mut cost_setup = MLogistical::new(0.1);
+            let caches = layers.clone().downward(x.clone(), &mut cost_setup);
             let grads = layers
                 .clone()
-                .gradients(MLogistical::from_a(y), (Cache::from_a(x), caches));
-            let layers = layers.update_params(grads.remove_mdas(), 0.1);
+                .gradients(y, &mut cost_setup, (Cache::from_a(x), caches));
+            let layers = layers.update_params(grads.remove_mdas(), &cost_setup);
 
             assert!(layers.0.w.array().approx(
                 [
@@ -1258,8 +1423,8 @@ pub mod _6 {
     pub use _4::UpdateParameters;
 }
 pub use _6::{
-    non_zero, CleanupGrads, DownUpGrads, Dzdx, Grads, Mda, Mdz, SplitHead, UpdateParameters,
-    UpwardAZ, UpwardDownZUpA, UpwardJA, UpwardZwb,
+    non_zero, CleanupGrads, DownUpGrads, Dzdx, Grads, LastA, Mda, Mdz, SplitHead, UpdateParameters,
+    UpwardAZ, UpwardDownZUpA, UpwardJA, UpwardZwb, Wb,
 };
 
 /// C01W04PA01 Part 7 - Conclusion.
