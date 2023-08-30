@@ -126,8 +126,9 @@ pub mod _4 {
     /// - 1 output value (rows), 3 examples (cols);
     pub fn example_y(device: &Device) -> TensorF32<Rank2<1, 3>> {
         let y = device.tensor([[true, false, true]]);
-        y.clone()
-            .choose(device.ones_like(&y), device.zeros_like(&y))
+        let zeros = device.zeros();
+        let ones = device.ones();
+        y.clone().choose(ones, zeros)
     }
 
     /// C01W03PA01 Section 1 - Defining the Neural Network Structure.

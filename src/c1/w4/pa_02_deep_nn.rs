@@ -47,9 +47,11 @@ mod _3 {
 
 /// C01W04PA02 Part 4 - 2-Layer nn.
 pub mod _4 {
+    use crate::c2::w1::pa_02_regularization::ActivationSetup;
+
     use super::*;
 
-    pub trait Layers<const X_FEATURES: usize, const Y_FEATURES: usize, const SETLEN: usize>
+    pub trait LayersSetup<const X_FEATURES: usize, const Y_FEATURES: usize, const SETLEN: usize>
     where
         Self: Clone
             + Downward<
@@ -59,7 +61,8 @@ pub mod _4 {
                     <Self as DownUpGrads<Y_FEATURES, SETLEN>>::Cache,
                     <Self as DownUpGrads<Y_FEATURES, SETLEN>>::LowerCaches,
                 ),
-            > + DownUpGrads<Y_FEATURES, SETLEN, X = Cache<X_FEATURES, SETLEN>>,
+            > + DownUpGrads<Y_FEATURES, SETLEN, X = Cache<X_FEATURES, SETLEN>>
+            + crate::c2::w1::pa_02_regularization::ActivationSetup,
         (
             <Self as DownUpGrads<Y_FEATURES, SETLEN>>::Cache,
             <Self as DownUpGrads<Y_FEATURES, SETLEN>>::LowerCaches,
@@ -86,9 +89,12 @@ pub mod _4 {
         {
             for i in 0..num_iterations {
                 // reset cross-training step information from the cost_setup
-                cost_setup.new_train_step();
+                cost_setup.refresh_cost();
 
-                let caches = self.clone().downward(train_x.clone(), cost_setup);
+                // reset downward activation information
+                self.refresh_activation();
+
+                let caches = self.downward(train_x.clone(), cost_setup);
                 let cost = cost_setup
                     .cost(train_y.clone(), caches.last_a().clone())
                     .array();
@@ -98,22 +104,19 @@ pub mod _4 {
 
                 // reset cost_setup because a downward pass had already happened for the caches,
                 // but a new downward pass will happen for the gradients
-                cost_setup.new_train_step();
+                cost_setup.refresh_cost();
 
                 let wrap_caches = (Cache::from_a(train_x.clone()), caches);
-                let grads = self
-                    .clone()
-                    .gradients(train_y.clone(), cost_setup, wrap_caches);
+                let grads = self.gradients(train_y.clone(), cost_setup, wrap_caches);
                 let grads = grads.remove_mdas();
 
                 self = self.update_params(grads, cost_setup);
             }
-
             self
         }
 
         fn cost<CostType>(
-            self,
+            &mut self,
             train_x: X<X_FEATURES, SETLEN>,
             train_y: Y<Y_FEATURES, SETLEN>,
             cost_setup: &mut CostType,
@@ -123,12 +126,13 @@ pub mod _4 {
                 + CostSetup
                 + UpwardJA<Y_FEATURES, SETLEN, Output = TensorF32<Rank2<Y_FEATURES, SETLEN>>>,
         {
+            cost_setup.refresh_cost();
             let caches = self.downward(train_x, cost_setup);
             cost_setup.cost(train_y, caches.last_a().clone()).array()
         }
 
         fn predict<CostType>(
-            self,
+            &mut self,
             train_x: X<X_FEATURES, SETLEN>,
             cost_setup: &mut CostType,
         ) -> A<Y_FEATURES, SETLEN>
@@ -137,13 +141,14 @@ pub mod _4 {
                 + CostSetup
                 + UpwardJA<Y_FEATURES, SETLEN, Output = TensorF32<Rank2<Y_FEATURES, SETLEN>>>,
         {
+            cost_setup.refresh_cost();
             let caches = self.downward(train_x, cost_setup);
             caches.last_a().clone()
         }
     }
 
     impl<L, const X_FEATURES: usize, const Y_FEATURES: usize, const SETLEN: usize>
-        Layers<X_FEATURES, Y_FEATURES, SETLEN> for L
+        LayersSetup<X_FEATURES, Y_FEATURES, SETLEN> for L
     where
         L: Clone
             + Downward<
@@ -162,6 +167,7 @@ pub mod _4 {
             Grads = <<L as DownUpGrads<Y_FEATURES, SETLEN>>::Output as CleanupGrads>::Output,
         >,
         <L as DownUpGrads<Y_FEATURES, SETLEN>>::Output: CleanupGrads,
+        L: ActivationSetup,
     {
     }
 
@@ -218,7 +224,7 @@ pub mod _4 {
         Ok(())
     }
 }
-pub use _4::Layers;
+pub use _4::LayersSetup;
 
 /// C01W04PA02 Part 5 - L-Layer nn.
 pub mod _5 {

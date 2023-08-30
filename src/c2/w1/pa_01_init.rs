@@ -16,16 +16,42 @@ use crate::helpers::{Approx, _dfdx::*};
 mod _1 {
     use super::*;
 
-    pub trait LayerInitialization {
+    pub trait LayerInitialization: Sized {
         fn init_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
             device: &Device,
+            z: Z,
+            a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A>;
+
+        fn init_layer_wb<const FEATLEN: usize, const NODELEN: usize, Z, A>(
+            self,
+            device: &Device,
+        ) -> Layer<FEATLEN, NODELEN, Z, A>
+        where
+            Z: Default,
+            A: Default,
+        {
+            self.init_layer(device, Z::default(), A::default())
+        }
 
         fn reinit_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
             layer: Layer<FEATLEN, NODELEN, Z, A>,
+            z: Z,
+            a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A>;
+
+        fn reinit_layer_wb<const FEATLEN: usize, const NODELEN: usize, Z, A>(
+            self,
+            layer: Layer<FEATLEN, NODELEN, Z, A>,
+        ) -> Layer<FEATLEN, NODELEN, Z, A>
+        where
+            Z: Default,
+            A: Default,
+        {
+            self.reinit_layer(layer, Z::default(), A::default())
+        }
     }
 
     /// A macro similar to layerc1 except that the initialization information must be informed for every layer.
@@ -40,12 +66,12 @@ mod _1 {
             };
 
             // explicit single layer creation
-            ($dev:expr, $features:literal, $z:ty>$a:ty => $layer_nodes:literal $init:expr) => {
+            ($dev:expr, $features:literal, $z:expr=>$a:expr => $layer_nodes:literal $init:expr) => {
                 {
                     // returns the layer
                     type _Layer<const FEATLEN: usize, const NODELEN: usize, Z, A> = $crate::c1::w4::pa_01_deep_nn::Layer<FEATLEN, NODELEN, Z, A>;
                     use $crate::c2::w1::pa_01_init::LayerInitialization as _Init;
-                    let _layer: _Layer<$features, $layer_nodes, $z, $a> = _Init::init_layer($init, $dev);
+                    let _layer: _Layer<$features, $layer_nodes, _, _> = _Init::init_layer($init, $dev, $z, $a);
                     _layer
                 }
             };
@@ -55,9 +81,9 @@ mod _1 {
                 (
                     {
                         // creates a single implicit layer
-                        type _Linear = $crate::c1::w4::pa_01_deep_nn::Linear;
-                        type _Relu = $crate::c1::w4::pa_01_deep_nn::ReLU;
-                        $crate::layerc2!($dev, $node_features, _Linear>_Relu => $head_layer_node $head_init)
+                        let _linear = $crate::c1::w4::pa_01_deep_nn::Linear::default();
+                        let _relu = $crate::c1::w4::pa_01_deep_nn::ReLU::default();
+                        $crate::layerc2!($dev, $node_features, _linear=>_relu => $head_layer_node $head_init)
                     },
                     // recursive macro call on the remaining layers, forwarding the last "feature" information
                     $crate::layerc2!($dev, auto, $head_layer_node, [$($tail_layers_nodes $tail_inits),*])
@@ -65,12 +91,12 @@ mod _1 {
             };
 
             // explicit hidden layer creation
-            ($dev:expr, $node_features:literal, $z:ty>$a:ty => [$head_layer_node:literal $head_init:expr, $($tail_layers_nodes:literal $tail_inits:expr),*] $($other:tt)*) => {
+            ($dev:expr, $node_features:literal, $z:expr=>$a:expr => [$head_layer_node:literal $head_init:expr, $($tail_layers_nodes:literal $tail_inits:expr),*] $($other:tt)*) => {
                 (
                     // creates a single layer
-                    $crate::layerc2!($dev, $node_features, $z>$a => $head_layer_node $head_init),
+                    $crate::layerc2!($dev, $node_features, $z=>$a => $head_layer_node $head_init),
                     // recursive macro call on the remaining layers, forwarding the last "feature" information
-                    $crate::layerc2!($dev, $head_layer_node, $z>$a => [$($tail_layers_nodes $tail_inits),*] $($other)*)
+                    $crate::layerc2!($dev, $head_layer_node, $z=>$a => [$($tail_layers_nodes $tail_inits),*] $($other)*)
                 )
             };
 
@@ -78,26 +104,26 @@ mod _1 {
             ($dev:expr, auto, $node_features:literal, [$last_layer_node:literal $last_init:expr]) => {
                 {
                     // creates a single implicit layer (which is the last)
-                    type _Linear = $crate::c1::w4::pa_01_deep_nn::Linear;
-                    type _Sigmoid = $crate::c1::w4::pa_01_deep_nn::Sigmoid;
-                    $crate::layerc2!($dev, $node_features, _Linear>_Sigmoid => $last_layer_node $last_init)
+                    let _linear = $crate::c1::w4::pa_01_deep_nn::Linear::default();
+                    let _sigmoid = $crate::c1::w4::pa_01_deep_nn::Sigmoid::default();
+                    $crate::layerc2!($dev, $node_features, _linear=>_sigmoid => $last_layer_node $last_init)
                 }
             };
 
             // explicit last layer creation (with no continuation)
-            ($dev:expr, $node_features:literal, $z:ty>$a:ty => [$last_layer_node:literal $last_init:expr]) => {
+            ($dev:expr, $node_features:literal, $z:expr=>$a:expr => [$last_layer_node:literal $last_init:expr]) => {
                 // returns the layer
-                $crate::layerc2!($dev, $node_features, $z>$a => $last_layer_node $last_init)
+                $crate::layerc2!($dev, $node_features, $z=>$a => $last_layer_node $last_init)
             };
 
             // explicit "last" layer creation (with a continuation)
-            ($dev:expr, $node_features:literal, $z:ty>$a:ty => [$last_layer_node:literal $last_init:expr] $($other:tt)*) => {
+            ($dev:expr, $node_features:literal, $z:expr=>$a:expr => [$last_layer_node:literal $last_init:expr] $($other:tt)*) => {
                 (
                     // returns the layer
-                    $crate::layerc2!($dev, $node_features, $z>$a => $last_layer_node $last_init),
+                    $crate::layerc2!($dev, $node_features, $z=>$a => $last_layer_node $last_init),
                     // makes a brand new macro call on whatever arguments remains,
                     // forwarding the last "feature" information
-                    $crate::layerc2!($dev, $last_layer_node $last_init $($other)*)
+                    $crate::layerc2!($dev, $last_layer_node $($other)*)
                 )
             };
         }
@@ -119,17 +145,23 @@ pub mod _2 {
         fn init_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
             device: &Device,
+            z: Z,
+            a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A> {
-            Layer::with(device.zeros(), device.zeros())
+            Layer::with(device.zeros(), device.zeros(), z, a)
         }
 
         /// Re-initializes w and b to zero.
         fn reinit_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
             mut layer: Layer<FEATLEN, NODELEN, Z, A>,
+            z: Z,
+            a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A> {
             layer.w.fill_with_zeros();
             layer.b.fill_with_zeros();
+            layer.z = z;
+            layer.a = a;
             layer
         }
     }
@@ -210,18 +242,24 @@ pub mod _3 {
         fn init_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
             device: &Device,
+            z: Z,
+            a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A> {
-            Layer::with(device.sample_normal() * self.0, device.zeros())
+            Layer::with(device.sample_normal() * self.0, device.zeros(), z, a)
         }
 
         /// Re-initializes w to scaled samples from a normal distribution and initializes b to zero.
         fn reinit_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
             mut layer: Layer<FEATLEN, NODELEN, Z, A>,
+            z: Z,
+            a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A> {
             layer.w.fill_with_distr(rand_distr::StandardNormal);
             layer.w = layer.w * self.0;
             layer.b.fill_with_zeros();
+            layer.z = z;
+            layer.a = a;
             layer
         }
     }
@@ -315,10 +353,14 @@ pub mod _4 {
         fn init_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
             device: &Device,
+            z: Z,
+            a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A> {
             Layer::with(
                 device.sample_normal() * self.0 * (2. / (FEATLEN as f32)).sqrt(),
                 device.zeros(),
+                z,
+                a,
             )
         }
 
@@ -327,10 +369,14 @@ pub mod _4 {
         fn reinit_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
             mut layer: Layer<FEATLEN, NODELEN, Z, A>,
+            z: Z,
+            a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A> {
             layer.w.fill_with_distr(rand_distr::StandardNormal);
             layer.w = layer.w * self.0 * (2. / (FEATLEN as f32)).sqrt();
             layer.b.fill_with_zeros();
+            layer.z = z;
+            layer.a = a;
             layer
         }
     }
