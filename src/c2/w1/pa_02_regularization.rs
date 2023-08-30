@@ -77,15 +77,15 @@ mod _1 {
 pub mod _2 {
     use super::*;
 
-    /// Logistical cost function + Frobenius Regularization.
+    /// Frobenius Regularization Wrapper for a cost function.
     ///
     /// cost function m*J(L) = sum (L)
-    /// loss function L(ŷ,y,w,b) = MLogistical L(ŷ,y) + λ/2 sum (w² + b²)
+    /// loss function L(ŷ,y,w,b) = Inner L(ŷ,y) + λ/2 sum (w² + b²)
     #[derive(Clone, Debug)]
-    pub struct MLogisticalFrobeniusReg {
-        pub learning_rate: f32,
+    pub struct FrobeniusReg<Inner> {
+        /// Wrapped base cost function.
+        pub inner: Inner,
 
-        // pub a: A<NODELEN, SETLEN>,
         /// Regularization Parameter.
         pub lambda: f32,
 
@@ -95,28 +95,30 @@ pub mod _2 {
         pub acc: f32,
     }
 
-    impl MLogisticalFrobeniusReg {
-        fn new(learning_rate: f32, lambda: f32) -> Self {
+    impl<Inner> FrobeniusReg<Inner> {
+        fn new(inner: Inner, lambda: f32) -> Self {
             Self {
-                learning_rate,
+                inner,
                 lambda,
                 acc: 0.,
             }
         }
     }
 
-    #[allow(clippy::let_and_return)]
     /// Logistical cost.
-    impl CostSetup for MLogisticalFrobeniusReg {
+    impl<Inner> CostSetup for FrobeniusReg<Inner>
+    where
+        Inner: CostSetup,
+    {
         /// M * Cost function m * J = sum (L).
         ///
-        /// loss function L(ŷ,y,w,b) = MLogistical L(ŷ,y) + λ/2m sum (w² + b²)
+        /// loss function L(ŷ,y,w,b) = Inner L(ŷ,y) + λ/2m sum (w² + b²)
         fn mcost<const NODELEN: usize, const SETLEN: usize>(
             &self,
             expect: A<NODELEN, SETLEN>,
             predict: A<NODELEN, SETLEN>,
         ) -> TensorF32<Rank1<NODELEN>> {
-            let cross_entropy = MLogistical::new(self.learning_rate).mcost(expect, predict);
+            let cross_entropy = self.inner.mcost(expect, predict);
             let regularization = self.acc * self.lambda / 2.;
 
             // M * cost function m * J = sum (L)
@@ -137,7 +139,7 @@ pub mod _2 {
 
         /// Intermediate cost calculation during the downward pass.
         ///
-        /// The Loss function L(ŷ,y,w,b) = MLogistical L(ŷ,y) + λ/2m sum (w² + b²)
+        /// The Loss function L(ŷ,y,w,b) = Inner L(ŷ,y) + λ/2m sum (w² + b²)
         /// has the additive term λ/2m sum (w² + b²).
         ///
         /// acc is an intermediate value for this calculation.  
@@ -146,6 +148,9 @@ pub mod _2 {
             &mut self,
             layer: &Layer<SOME_FEATLEN, SOME_NODELEN, SomeZ, SomeA>,
         ) {
+            // downward recursive call into what's wrapped
+            self.inner.downward(layer);
+
             // sum the layer's nodes' w² and b²
             let layer_sum = layer.w.clone().square().sum::<Rank0, _>().array()
                 + layer.b.clone().square().sum::<Rank0, _>().array();
@@ -156,7 +161,7 @@ pub mod _2 {
 
         /// Required direct additive term for ∂J/∂w and ∂J/∂b.
         ///
-        /// The Loss function L(ŷ,y,w,b) = MLogistical L(ŷ,y) + λ/2m sum (w² + b²)
+        /// The Loss function L(ŷ,y,w,b) = Inner L(ŷ,y) + λ/2m sum (w² + b²)
         /// has the additive term λ/2m sum (w² + b²).
         ///
         /// Since each (w, b) additively and directly affects J, their gradients also have some additive calculations.
@@ -173,32 +178,45 @@ pub mod _2 {
             &self,
             layer: &Layer<SOME_FEATLEN, SOME_NODELEN, Z, A>,
         ) -> Option<Wb<SOME_NODELEN, SOME_FEATLEN>> {
-            let dw = layer.w.clone() * self.lambda / (SETLEN as f32);
+            let mut dw = layer.w.clone() * self.lambda / (SETLEN as f32);
             let db = layer.b.clone() * self.lambda / (SETLEN as f32);
-            Some((dw, db.reshape()))
+            let mut db = db.reshape::<Rank1<SOME_NODELEN>>();
+
+            // upward recursive call into what's wrapped
+            if let Some((inner_dw, inner_db)) = self
+                .inner
+                .direct_upward_dwdb::<SOME_NODELEN, SOME_FEATLEN, SETLEN, _, _>(layer)
+            {
+                dw = dw + inner_dw;
+                db = db + inner_db;
+            }
+
+            Some((dw, db))
         }
 
         fn update_params<const NODELEN: usize, const FEATLEN: usize, Z, A>(
             &self,
-            mut layer: Layer<FEATLEN, NODELEN, Z, A>,
+            layer: Layer<FEATLEN, NODELEN, Z, A>,
             gradient: Grads<NODELEN, FEATLEN>,
         ) -> Layer<FEATLEN, NODELEN, Z, A> {
-            layer.w = layer.w - gradient.dw * self.learning_rate;
-            layer.b = layer.b - (gradient.db * self.learning_rate).reshape::<Rank2<NODELEN, 1>>();
-            layer
+            // the wrapper has no specifics on how the parameters are updated
+            self.inner.update_params(layer, gradient)
         }
 
         fn new_train_step(&mut self) {
+            // reset accumulator
             self.acc = 0.;
         }
     }
 
-    /// Any layer with a Sigmoid activation can calculate mda = m * ∂J/∂a for the logistical+frobeniusReg cost function.
-    impl<const NODELEN: usize, const SETLEN: usize> UpwardJA<NODELEN, SETLEN>
-        for MLogisticalFrobeniusReg
+    /// Any Inner layer should be able to calculate mda = m * ∂J/∂a for the Inner + frobeniusReg cost function.
+    impl<const NODELEN: usize, const SETLEN: usize, Inner> UpwardJA<NODELEN, SETLEN>
+        for FrobeniusReg<Inner>
+    where
+        Inner: CostSetup + UpwardJA<NODELEN, SETLEN>,
     {
         /// mda = m * ∂J/∂a.
-        type Output = <MLogistical as UpwardJA<NODELEN, SETLEN>>::Output;
+        type Output = <Inner as UpwardJA<NODELEN, SETLEN>>::Output;
 
         /// mda = m * ∂J/∂a = (1-y)/(1-a) - y/a = (a-y)/(a(1-a)).
         fn upward_mda(
@@ -206,7 +224,8 @@ pub mod _2 {
             expect: A<NODELEN, SETLEN>,
             predict: A<NODELEN, SETLEN>,
         ) -> Self::Output {
-            MLogistical::new(self.learning_rate).upward_mda(expect, predict)
+            // this regularization has no effect on the J->mda->mdz->(..) path
+            self.inner.upward_mda(expect, predict)
         }
     }
 
@@ -228,14 +247,14 @@ pub mod _2 {
 
         // get the cost by calling on "layers"
         {
-            let mut cost_setup = MLogisticalFrobeniusReg::new(1., 1e-1);
+            let mut cost_setup = FrobeniusReg::new(MLogistical::new(1.), 1e-1);
             let cost = layers.clone().cost(x.clone(), y.clone(), &mut cost_setup);
             assert_eq!(cost, COST);
         }
 
         // get the cost by calling on "cost_setup" after manually downwarding it on the layers
         {
-            let mut cost_setup = MLogisticalFrobeniusReg::new(1., 1e-1);
+            let mut cost_setup = FrobeniusReg::new(MLogistical::new(1.), 1e-1);
             cost_setup.downward(&layers.0);
             cost_setup.downward(&layers.1 .0);
             cost_setup.downward(&layers.1 .1);
@@ -245,7 +264,7 @@ pub mod _2 {
 
         // get the cost by calling on "cost_setup" after automatically downwarding it on the layers
         {
-            let mut cost_setup = MLogisticalFrobeniusReg::new(1., 1e-1);
+            let mut cost_setup = FrobeniusReg::new(MLogistical::new(1.), 1e-1);
             let caches = layers.downward(x, &mut cost_setup);
             assert_eq!(yhat.array(), caches.last_a().array());
             let cost = cost_setup.cost(y, yhat).array();
@@ -265,7 +284,7 @@ pub mod _2 {
         layers.0.b = dev.sample_normal() * (2f32 / 3.).sqrt();
         layers.1 .0.b = dev.sample_normal() * (2f32 / 2.).sqrt();
         layers.1 .1.b = dev.sample_normal() * (2f32 / 3.).sqrt();
-        let mut cost_setup = MLogisticalFrobeniusReg::new(1., 7e-1);
+        let mut cost_setup = FrobeniusReg::new(MLogistical::new(1.), 7e-1);
         let caches = layers.clone().downward(x.clone(), &mut cost_setup);
 
         // get the grads values, given the cost_setup used during the caches calculation
@@ -304,7 +323,7 @@ pub mod _2 {
         let train_y = dev.tensor(YTRAIN);
 
         let layers = layerc2!(dev, [2, 20 he, 3 he, 1 he2]);
-        let mut cost_setup = MLogisticalFrobeniusReg::new(3e-1, 7e-1);
+        let mut cost_setup = FrobeniusReg::new(MLogistical::new(3e-1), 7e-1);
         let layers = layers.train(
             train_x.clone(),
             train_y.clone(),
