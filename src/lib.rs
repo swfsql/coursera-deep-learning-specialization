@@ -4,6 +4,8 @@
 #![allow(incomplete_features)]
 #![feature(associated_type_defaults)]
 #![feature(associated_const_equality)]
+#![feature(float_next_up_down)]
+#![feature(trait_alias)]
 
 pub mod c1;
 pub mod c2;

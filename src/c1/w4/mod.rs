@@ -10,5 +10,5 @@ pub mod prelude {
         Sigmoid, SplitHead, Tanh, UpdateParameters, UpwardAZ, UpwardDownZUpA, UpwardJA, UpwardZwb,
         Wb, WrapA, A, B, W, X, Y, Z,
     };
-    pub use super::pa_02_deep_nn::LayersSetup;
+    pub use super::pa_02_deep_nn::{LayerBounds, LayersSetup};
 }

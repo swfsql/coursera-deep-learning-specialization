@@ -49,8 +49,8 @@ mod _3 {
 pub mod _4 {
     use super::*;
 
-    pub trait LayersSetup<const X_FEATURES: usize, const Y_FEATURES: usize, const SETLEN: usize>
-    where
+    /// Various capabilities for a single (or recursively more) layers.
+    pub trait LayerBounds<const X_FEATURES: usize, const Y_FEATURES: usize, const SETLEN: usize> = where
         Self: Clone
             + Downward<
                 SETLEN,
@@ -64,12 +64,14 @@ pub mod _4 {
             <Self as DownUpGrads<Y_FEATURES, SETLEN>>::Cache,
             <Self as DownUpGrads<Y_FEATURES, SETLEN>>::LowerCaches,
         ): crate::c1::w4::pa_01_deep_nn::_6::_3::LastA<Last = A<Y_FEATURES, SETLEN>>,
-        // allows the weights and biases to be updated
         Self: UpdateParameters<
             Grads = <<Self as DownUpGrads<Y_FEATURES, SETLEN>>::Output as CleanupGrads>::Output,
         >,
-        // removes the up_mda info
-        <Self as DownUpGrads<Y_FEATURES, SETLEN>>::Output: CleanupGrads,
+        <Self as DownUpGrads<Y_FEATURES, SETLEN>>::Output: CleanupGrads;
+
+    pub trait LayersSetup<const X_FEATURES: usize, const Y_FEATURES: usize, const SETLEN: usize>
+    where
+        Self: LayerBounds<X_FEATURES, Y_FEATURES, SETLEN>,
     {
         fn train<CostType>(
             mut self,
@@ -217,7 +219,7 @@ pub mod _4 {
         Ok(())
     }
 }
-pub use _4::LayersSetup;
+pub use _4::{LayerBounds, LayersSetup};
 
 /// C01W04PA02 Part 5 - L-Layer nn.
 pub mod _5 {

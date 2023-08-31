@@ -1023,7 +1023,6 @@ pub mod _6 {
             values
         }
 
-        /// Any layer with a Sigmoid activation can calculate mda = m * ∂J/∂a for the logistical cost function.
         //
         // Note: notice that we have lost a symbolic optimization (and precision).
         //
