@@ -42,3 +42,13 @@ pub fn device() -> Device {
 pub fn device() -> Device {
     Device::try_build(0, 0).unwrap()
 }
+
+#[cfg(not(feature = "cuda"))]
+pub fn device_seed(seed: u64) -> Device {
+    Device::seed_from_u64(seed)
+}
+
+#[cfg(feature = "cuda")]
+pub fn device_seed(seed: u64) -> Device {
+    Device::try_build(0, seed).unwrap()
+}

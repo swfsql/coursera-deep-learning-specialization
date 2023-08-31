@@ -592,7 +592,7 @@ pub mod _4 {
         ) -> TensorF32<Rank1<L2LEN>>
         where
             YD: dfdx::dtypes::Unit,
-            YD: candle_core::cuda_backend::cudarc::types::CudaTypeName,
+            YD: cudarc::types::CudaTypeName,
         {
             (prediction - y.to_dtype::<f32>())
                 .abs()

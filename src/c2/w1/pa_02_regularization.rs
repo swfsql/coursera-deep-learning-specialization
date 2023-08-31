@@ -219,6 +219,7 @@ pub mod _2 {
             self.inner.update_params(layer, gradient)
         }
 
+        /// Resets the accumulator.
         fn refresh_cost(&mut self) {
             // reset accumulator
             self.acc = Some(0.);
@@ -405,33 +406,56 @@ pub mod _3 {
     pub mod _1 {
         use super::*;
 
-        pub trait ActivationSetup {
-            fn refresh_activation(&mut self) {}
+        /// Seed used to generate Dropout masks.
+        #[derive(Clone, Debug, PartialEq)]
+        pub struct DropoutSeed {
+            pub is_downward: bool,
+            pub seed: u64,
+            pub max_seed: u64,
         }
 
-        impl ActivationSetup for Sigmoid {}
-        impl ActivationSetup for ReLU {}
-        impl ActivationSetup for Tanh {}
-
-        impl<const FEATLEN: usize, const NODELEN: usize, Z, A> ActivationSetup
-            for Layer<FEATLEN, NODELEN, Z, A>
-        where
-            A: ActivationSetup,
-        {
-            fn refresh_activation(&mut self) {
-                self.a.refresh_activation()
+        impl DropoutSeed {
+            pub fn new(seed: u64) -> Self {
+                Self {
+                    is_downward: true,
+                    seed,
+                    max_seed: 0,
+                }
             }
-        }
-
-        impl<const FEATLEN: usize, const NODELEN: usize, Z, A, Tail> ActivationSetup
-            for (Layer<FEATLEN, NODELEN, Z, A>, Tail)
-        where
-            Layer<FEATLEN, NODELEN, Z, A>: ActivationSetup,
-            Tail: ActivationSetup,
-        {
-            fn refresh_activation(&mut self) {
-                self.0.refresh_activation();
-                self.1.refresh_activation()
+            pub fn set(&mut self, seed: u64, is_downward: bool, max_seed: u64) {
+                *self = Self {
+                    is_downward,
+                    seed,
+                    max_seed,
+                };
+            }
+            pub fn is_downward(&self) -> bool {
+                self.is_downward
+            }
+            pub fn is_upward(&self) -> bool {
+                !self.is_downward
+            }
+            /// Increments the seed and returns it.
+            /// If was previously going upwards, then first offsets to avoid repetition.
+            pub fn tick_downward(&mut self) -> u64 {
+                if self.is_upward() {
+                    self.is_downward = true;
+                    self.seed = self.max_seed;
+                }
+                self.seed = self.seed.wrapping_add(1);
+                self.seed
+            }
+            /// Decrements the seed and returns it.
+            /// If was previously going downwards, then first annotates the max_seed for later offset, and also returns it.
+            pub fn tick_upward(&mut self) -> u64 {
+                if self.is_downward() {
+                    self.max_seed = self.seed;
+                    self.is_downward = false;
+                    self.max_seed
+                } else {
+                    self.seed = self.seed.wrapping_sub(1);
+                    self.seed
+                }
             }
         }
 
@@ -449,81 +473,26 @@ pub mod _3 {
             /// Probability of keeping the nodes on the layer.
             pub keep_prob: f32,
 
-            /// Mask cache created during the downward pass.
-            ///
-            /// Notes:
-            /// - If the keep_mask was unset before a downward pass, it's generated and set.
-            /// - If the keep_mask was set before a downward pass, it's re-utilized.
-            /// - The keep_mask must have been set before the upward pass.
-            //
-            // Note: Could not keep this as constant-sized tensor because it would need to
-            // Rank2<NODELEN, SETLEN>, but downward_a() fn call requires SETLEN to be defined
-            // at call-site.
-            // Ie. Otherwise we would have to build a new layer definition for each of the
-            // training vs testing, since it would need to be constant towards each of the setlen.
-            // In this case, it's better left dynamic-sized.
-            pub keep_mask: Option<Vec<bool>>,
+            pub seed: DropoutSeed,
         }
 
         impl<Inner> Dropout<Inner> {
-            pub fn with(inner: Inner, keep_prob: f32, keep_mask: Vec<bool>) -> Self {
+            pub fn with(inner: Inner, keep_prob: f32, seed: DropoutSeed) -> Self {
                 Self {
                     inner,
                     keep_prob,
-                    keep_mask: Some(keep_mask),
+                    seed,
                 }
             }
 
-            pub fn new(inner: Inner, keep_prob: f32) -> Self {
+            pub fn new(device: &Device, inner: Inner, keep_prob: f32) -> Self {
+                let seed: TensorF32<Rank0> = device.sample_uniform();
+                let seed = seed.array() * (u64::MAX as f32);
                 Self {
                     inner,
                     keep_prob,
-                    keep_mask: None,
+                    seed: DropoutSeed::new(seed as u64),
                 }
-            }
-
-            /// Discards the keep_mask generated during a downward pass.
-            pub fn discard_keep_mask(&mut self) {
-                self.keep_mask = None;
-            }
-
-            pub fn mask_vec_to_tensor<const NODELEN: usize, const SETLEN: usize>(
-                &self,
-                dev: &Device,
-            ) -> Option<Tensor<Rank2<NODELEN, SETLEN>, bool, Device>> {
-                match &self.keep_mask {
-                    None => None,
-                    Some(mask) => {
-                        let mut keep_mask_arr = [[false; SETLEN]; NODELEN];
-                        keep_mask_arr
-                            .iter_mut()
-                            .enumerate()
-                            .for_each(|(node_index, node_mask)| {
-                                let offset = node_index * SETLEN;
-                                node_mask.copy_from_slice(&mask[offset..offset + SETLEN]);
-                            });
-                        Some(dev.tensor(keep_mask_arr))
-                    }
-                }
-            }
-
-            pub fn mask_arr_to_vec<const NODELEN: usize, const SETLEN: usize>(
-                &self,
-                mask: &[[bool; SETLEN]; NODELEN],
-            ) -> Vec<bool> {
-                let mut keep_mask_vec = vec![false; NODELEN * SETLEN];
-                mask.iter().enumerate().for_each(|(node_index, node_mask)| {
-                    let offset = node_index * SETLEN;
-                    keep_mask_vec[offset..offset + SETLEN].copy_from_slice(node_mask);
-                });
-                keep_mask_vec
-            }
-        }
-
-        impl<Inner> ActivationSetup for Dropout<Inner> {
-            /// For each new training step, discards the layer's mask.
-            fn refresh_activation(&mut self) {
-                self.discard_keep_mask()
             }
         }
 
@@ -566,17 +535,17 @@ pub mod _3 {
                 // let inner_a = self.a.inner.downward_a(z);
                 let dev = inner_a.device();
 
-                // if already set, this re-utilizes the keep_mask
-                let keep_mask = if self.a.keep_mask.is_some() {
-                    self.a.mask_vec_to_tensor(dev).unwrap()
-                } else {
-                    // creates a new tensor and saves it as a vector inside the activation
-                    let keep_prob: TensorF32<Rank2<NODELEN, SETLEN>> = dev.sample_uniform();
-                    let keep_mask = keep_prob.le(self.a.keep_prob);
-                    let keep_mask_vec = self.a.mask_arr_to_vec(&keep_mask.array());
-                    self.a.keep_mask = Some(keep_mask_vec);
-                    keep_mask
-                };
+                // generates the mask using a specific seed
+                let downward_seed = self.a.seed.tick_downward();
+                let mask_dev = &device_seed(downward_seed);
+                let keep_prob: TensorF32<Rank2<NODELEN, SETLEN>> = mask_dev.sample_uniform();
+                let keep_mask = keep_prob.le(self.a.keep_prob);
+                // note: the same seed must be used during the upward pass
+                //
+                // note: creating a whole device seems quite slow.
+                // Could work better if we had direct access to the Cpu's rng data,
+                // and if we could set and restore it to what we would like.
+                // in this way, creating a whole Device would not be necessary
 
                 // dropped-out nodes get zeroed-out
                 let zeros: TensorF32<Rank2<NODELEN, SETLEN>> = dev.zeros();
@@ -594,7 +563,7 @@ pub mod _3 {
         }
 
         #[test]
-        fn test_dropout_forward() {
+        fn test_dropout_downward() {
             let dev = &device();
             let he = HeInit(1.);
             let hes = HeInit::sigmoid();
@@ -603,19 +572,19 @@ pub mod _3 {
             let mut layers = layerc2!(
                 dev,
                 3,
-                Linear => Dropout::new(ReLU, 0.7) => [2 he],
-                Linear => Dropout::new(ReLU, 0.7) => [3 he],
+                Linear => Dropout::new(dev, ReLU, 0.7) => [2 he],
+                Linear => Dropout::new(dev, ReLU, 0.7) => [3 he],
                 Linear => Sigmoid => [1 hes]
             );
 
             let caches = layers.downward(x, &mut MLogistical::default());
             assert_eq!(
                 caches.flat4().2.a.array(),
-                [[0.49617895, 0.9316923, 0.5, 0.5, 0.3315451]]
+                [[0.0021308477, 0.5, 0.5, 0.04413341, 0.39451474]]
             );
         }
     }
-    pub use _1::{ActivationSetup, Dropout};
+    pub use _1::{Dropout, DropoutSeed};
 
     /// C02W01PA01 Section 2 - Backward (Upward) Propagation With Dropout.
     pub mod _2 {
@@ -626,6 +595,8 @@ pub mod _3 {
             for Layer<FEATLEN, NODELEN, Z, Dropout<Inner>>
         where
             Layer<FEATLEN, NODELEN, Z, Inner>: UpwardAZ<NODELEN>,
+            Z: Clone,
+            Inner: Clone,
         {
             /// mdz per node = {
             ///     0 if keep_mask for node was false,
@@ -642,14 +613,23 @@ pub mod _3 {
             /// Notes:
             /// - The keep_mask must have been set before this upward pass.
             fn upward_mdz<const SETLEN: usize>(
-                self,
+                &mut self,
                 dropout_cache: Cache<NODELEN, SETLEN>,
                 mda: Mda<NODELEN, SETLEN>,
             ) -> Self::Output<SETLEN> {
                 let dev = self.w.device();
 
-                // get keep_mask generated during the downward pass for this layer
-                let keep_mask = self.a.mask_vec_to_tensor(dev).unwrap();
+                // re-generates the mask using a specific seed
+                let upward_seed = self.a.seed.tick_upward();
+                let mask_dev = &device_seed(upward_seed);
+                let keep_prob: TensorF32<Rank2<NODELEN, SETLEN>> = mask_dev.sample_uniform();
+                let keep_mask = keep_prob.le(self.a.keep_prob);
+                // note: the same seed must have been used during the downward pass
+                //
+                // note: creating a whole device seems quite slow.
+                // Could work better if we had direct access to the Cpu's rng data,
+                // and if we could set and restore it to what we would like.
+                // in this way, creating a whole Device would not be necessary
 
                 // dropped-out nodes get zeroed-out
                 let zeros: TensorF32<Rank2<NODELEN, SETLEN>> = dev.zeros();
@@ -664,15 +644,25 @@ pub mod _3 {
                 let mda = mda * scaling;
 
                 // temporary layer that has inner activation
-                let layer: Layer<FEATLEN, NODELEN, Z, Inner> =
-                    Layer::with(self.w, self.b, self.z, self.a.inner);
+                // TODO: remove clones?
+                let mut layer: Layer<FEATLEN, NODELEN, Z, Inner> = Layer::with(
+                    self.w.clone(),
+                    self.b.clone(),
+                    self.z.clone(),
+                    self.a.inner.clone(),
+                );
 
-                layer.upward_mdz(dropout_cache, mda)
+                let res = layer.upward_mdz(dropout_cache, mda);
+                self.w = layer.w;
+                self.b = layer.b;
+                self.z = layer.z;
+                self.a.inner = layer.a;
+                res
             }
         }
 
         #[test]
-        fn test_dropout_backward() {
+        fn test_dropout_upward() {
             let dev = &device();
             let he = HeInit(1.);
             let hes = HeInit::sigmoid();
@@ -682,39 +672,82 @@ pub mod _3 {
             let mut layers = layerc2!(
                 dev,
                 3,
-                Linear => Dropout::new(ReLU, 0.8) => [2 he],
-                Linear => Dropout::new(ReLU, 0.8) => [3 he],
+                Linear => Dropout::new(dev, ReLU, 0.8) => [2 he],
+                Linear => Dropout::new(dev, ReLU, 0.8) => [3 he],
                 Linear => Sigmoid => [1 hes]
             );
             let mut cost_setup = MLogistical::new(1.0);
             cost_setup.refresh_cost();
+
+            // verify the dropout seeds
+            let seeds_initial = [layers.0.a.seed.seed, layers.1 .0.a.seed.seed];
+
+            // get caches (downward)
             let caches = layers.downward(x.clone(), &mut cost_setup);
 
-            // get the grads values
+            // verify final seeds
+            let seeds_after_downward = [layers.0.a.seed.seed, layers.1 .0.a.seed.seed];
+            assert_eq!(seeds_initial[0] + 1, seeds_after_downward[0]);
+            assert_eq!(seeds_initial[1] + 1, seeds_after_downward[1]);
+
+            // get the grads values (upward)
             cost_setup.refresh_cost();
             let grads = layers
+                .clone()
+                .gradients(
+                    y.clone(),
+                    &mut cost_setup,
+                    (Cache::from_a(x.clone()), caches),
+                )
+                .remove_mdas()
+                .flat4();
+
+            // verify seeds again
+            let seeds_after_upward = [layers.0.a.seed.seed, layers.1 .0.a.seed.seed];
+            assert_eq!(seeds_initial[0] + 1, seeds_after_upward[0]);
+            assert_eq!(seeds_initial[1] + 1, seeds_after_upward[1]);
+
+            // asserts
+            assert_eq!(grads.2.dw.array(), [[0.08327425, 0.23616907, 0.018630508]]);
+            assert_eq!(
+                grads.1.dw.array(),
+                [
+                    [0.03177176, 0.019490158],
+                    [-0.094677165, -0.058079023],
+                    [0.0, -0.009395287]
+                ]
+            );
+            assert_eq!(
+                grads.0.dw.array(),
+                [
+                    [-0.04446063, 0.07673529, 0.14610517],
+                    [0.16612747, -0.22969477, 0.041919343]
+                ]
+            );
+
+            // makes another downward-upward round
+
+            // get caches (downward)
+            cost_setup.refresh_cost();
+            let caches = layers.downward(x.clone(), &mut cost_setup);
+
+            // verify final seeds
+            let seeds_after_downward2 = [layers.0.a.seed.seed, layers.1 .0.a.seed.seed];
+            assert_eq!(seeds_initial[0] + 2, seeds_after_downward2[0]);
+            assert_eq!(seeds_initial[1] + 2, seeds_after_downward2[1]);
+
+            // get the grads values (upward)
+            cost_setup.refresh_cost();
+            let _grads = layers
                 .clone()
                 .gradients(y, &mut cost_setup, (Cache::from_a(x), caches))
                 .remove_mdas()
                 .flat4();
 
-            // asserts
-            assert_eq!(
-                grads.2.dw.array(),
-                [[0.08585273, -0.0027280687, -0.0031253458]]
-            );
-            assert_eq!(
-                grads.1.dw.array(),
-                [
-                    [0.0, 0.040307995],
-                    [0.0, -0.00028485357],
-                    [0.0, 0.0008488357]
-                ]
-            );
-            assert_eq!(
-                grads.0.dw.array(),
-                [[0.0, 0.0, 0.0], [-2.105148, 0.11473336, -1.2267761]]
-            );
+            // verify seeds again
+            let seeds_after_upward2 = [layers.0.a.seed.seed, layers.1 .0.a.seed.seed];
+            assert_eq!(seeds_initial[0] + 2, seeds_after_upward2[0]);
+            assert_eq!(seeds_initial[1] + 2, seeds_after_upward2[1]);
         }
 
         #[test]
@@ -729,8 +762,8 @@ pub mod _3 {
             let layers = layerc2!(
                 dev,
                 2,
-                Linear => Dropout::new(ReLU, 0.86) => [20 he],
-                Linear => Dropout::new(ReLU, 0.86) => [3 he],
+                Linear => Dropout::new(dev, ReLU, 0.86) => [20 he],
+                Linear => Dropout::new(dev, ReLU, 0.86) => [3 he],
                 Linear => Sigmoid => [1 he2]
             );
 
@@ -739,14 +772,15 @@ pub mod _3 {
                 train_x.clone(),
                 train_y.clone(),
                 &mut cost_setup,
-                30_000,
-                3000,
+                // I've reduce the training time because the dropout impl is too slow
+                1_000,
+                100,
             );
 
             assert!(layers
                 .clone()
                 .cost(train_x.clone(), train_y.clone(), &mut cost_setup)
-                .approx(0.19930607, (2e-1, 0)));
+                .approx(0.25611246, (1e-1, 0)));
 
             // for accuracy testing, remove the dropouts
             let mut layers_clean = layerc2!(
@@ -800,7 +834,7 @@ pub mod _3 {
         }
     }
 }
-pub use _3::{ActivationSetup, Dropout};
+pub use _3::{Dropout, DropoutSeed};
 
 /// C02W01PA01 Part 4 - Conclusions.
 pub mod _4 {

@@ -859,7 +859,7 @@ pub mod _6 {
             type Output<const SETLEN: usize>;
             /// mdz = m * ∂J/∂z.
             fn upward_mdz<const SETLEN: usize>(
-                self,
+                &mut self,
                 cache: Cache<NODELEN, SETLEN>,
                 mda: Mda<NODELEN, SETLEN>,
             ) -> Self::Output<SETLEN>;
@@ -876,7 +876,7 @@ pub mod _6 {
             ///
             /// mdz = m * ∂J/∂z = m * ∂a/∂z * ∂J/∂a = cache.a * (1 - cache.a) * mda
             fn upward_mdz<const SETLEN: usize>(
-                self,
+                &mut self,
                 cache: Cache<NODELEN, SETLEN>,
                 mda: Mda<NODELEN, SETLEN>,
             ) -> Self::Output<SETLEN> {
@@ -896,7 +896,7 @@ pub mod _6 {
             ///
             /// mdz = m * ∂J/∂z = m * ∂a/∂z * ∂J/∂a = (1 - cache.a²) * mda.
             fn upward_mdz<const SETLEN: usize>(
-                self,
+                &mut self,
                 cache: Cache<NODELEN, SETLEN>,
                 mda: Mda<NODELEN, SETLEN>,
             ) -> Self::Output<SETLEN> {
@@ -915,7 +915,7 @@ pub mod _6 {
             ///
             /// mdz = m * ∂J/∂z = m * ∂a/∂z * ∂J/∂a = {1 if cache.a > 0; 0 if cache.a <= 0} * mda
             fn upward_mdz<const SETLEN: usize>(
-                self,
+                &mut self,
                 cache: Cache<NODELEN, SETLEN>,
                 mda: Mda<NODELEN, SETLEN>,
             ) -> Self::Output<SETLEN> {

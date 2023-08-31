@@ -47,8 +47,6 @@ mod _3 {
 
 /// C01W04PA02 Part 4 - 2-Layer nn.
 pub mod _4 {
-    use crate::c2::w1::pa_02_regularization::ActivationSetup;
-
     use super::*;
 
     pub trait LayersSetup<const X_FEATURES: usize, const Y_FEATURES: usize, const SETLEN: usize>
@@ -61,8 +59,7 @@ pub mod _4 {
                     <Self as DownUpGrads<Y_FEATURES, SETLEN>>::Cache,
                     <Self as DownUpGrads<Y_FEATURES, SETLEN>>::LowerCaches,
                 ),
-            > + DownUpGrads<Y_FEATURES, SETLEN, X = Cache<X_FEATURES, SETLEN>>
-            + crate::c2::w1::pa_02_regularization::ActivationSetup,
+            > + DownUpGrads<Y_FEATURES, SETLEN, X = Cache<X_FEATURES, SETLEN>>,
         (
             <Self as DownUpGrads<Y_FEATURES, SETLEN>>::Cache,
             <Self as DownUpGrads<Y_FEATURES, SETLEN>>::LowerCaches,
@@ -90,9 +87,6 @@ pub mod _4 {
             for i in 0..num_iterations {
                 // reset cross-training step information from the cost_setup
                 cost_setup.refresh_cost();
-
-                // reset downward activation information
-                self.refresh_activation();
 
                 let caches = self.downward(train_x.clone(), cost_setup);
                 let cost = cost_setup
@@ -167,7 +161,6 @@ pub mod _4 {
             Grads = <<L as DownUpGrads<Y_FEATURES, SETLEN>>::Output as CleanupGrads>::Output,
         >,
         <L as DownUpGrads<Y_FEATURES, SETLEN>>::Output: CleanupGrads,
-        L: ActivationSetup,
     {
     }
 
