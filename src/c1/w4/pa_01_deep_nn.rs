@@ -507,7 +507,7 @@ pub mod _4 {
             let dev = &device();
             let x: X<5, 4> = dev.sample_normal();
             let mut layers = layerc1!(dev, 1., [5, 4, 3, 1]);
-            let caches = layers.downward(x, &mut MLogistical::default());
+            let caches = layers.downward(x, &mut MLogistical);
             assert!(caches
                 .last_a()
                 .array()
@@ -568,13 +568,37 @@ pub mod _5 {
             None
         }
 
+        fn refresh_cost(&mut self) {}
+    }
+
+    pub trait Optimizer {
         fn update_params<const NODELEN: usize, const FEATLEN: usize, Z, A>(
             &self,
             layer: Layer<FEATLEN, NODELEN, Z, A>,
             gradient: Grads<NODELEN, FEATLEN>,
         ) -> Layer<FEATLEN, NODELEN, Z, A>;
+    }
 
-        fn refresh_cost(&mut self) {}
+    pub struct GradientDescend {
+        pub learning_rate: f32,
+    }
+
+    impl GradientDescend {
+        pub fn new(learning_rate: f32) -> Self {
+            Self { learning_rate }
+        }
+    }
+
+    impl Optimizer for GradientDescend {
+        fn update_params<const NODELEN: usize, const FEATLEN: usize, Z, A>(
+            &self,
+            mut layer: Layer<FEATLEN, NODELEN, Z, A>,
+            gradient: Grads<NODELEN, FEATLEN>,
+        ) -> Layer<FEATLEN, NODELEN, Z, A> {
+            layer.w = layer.w - gradient.dw * self.learning_rate;
+            layer.b = layer.b - (gradient.db * self.learning_rate).reshape::<Rank2<NODELEN, 1>>();
+            layer
+        }
     }
 
     /// Logistical cost function.
@@ -584,19 +608,11 @@ pub mod _5 {
     ///
     /// Note that the cost function is multiplied by `m` (SETLEN).
     #[derive(Clone, Debug)]
-    pub struct MLogistical {
-        pub learning_rate: f32,
-    }
+    pub struct MLogistical;
 
     impl Default for MLogistical {
         fn default() -> Self {
-            Self { learning_rate: 1. }
-        }
-    }
-
-    impl MLogistical {
-        pub fn new(learning_rate: f32) -> Self {
-            Self { learning_rate }
+            MLogistical
         }
     }
 
@@ -630,16 +646,6 @@ pub mod _5 {
             let l = self.mcost(expect, predict);
             // cost function J = sum (L) / m
             l.sum::<Rank0, _>() / (SETLEN as f32)
-        }
-
-        fn update_params<const NODELEN: usize, const FEATLEN: usize, Z, A>(
-            &self,
-            mut layer: Layer<FEATLEN, NODELEN, Z, A>,
-            gradient: Grads<NODELEN, FEATLEN>,
-        ) -> Layer<FEATLEN, NODELEN, Z, A> {
-            layer.w = layer.w - gradient.dw * self.learning_rate;
-            layer.b = layer.b - (gradient.db * self.learning_rate).reshape::<Rank2<NODELEN, 1>>();
-            layer
         }
     }
 
@@ -686,16 +692,6 @@ pub mod _5 {
             // cost function J = sum (L) / m
             l.sum::<Rank0, _>() / (SETLEN as f32)
         }
-
-        fn update_params<const NODELEN: usize, const FEATLEN: usize, Z, A>(
-            &self,
-            mut layer: Layer<FEATLEN, NODELEN, Z, A>,
-            gradient: Grads<NODELEN, FEATLEN>,
-        ) -> Layer<FEATLEN, NODELEN, Z, A> {
-            layer.w = layer.w - gradient.dw * self.learning_rate;
-            layer.b = layer.b - (gradient.db * self.learning_rate).reshape::<Rank2<NODELEN, 1>>();
-            layer
-        }
     }
 
     #[test]
@@ -705,11 +701,11 @@ pub mod _5 {
         let cache = Cache {
             a: dev.tensor([[0.8, 0.9, 0.4]]),
         };
-        let mut cost_setup = MLogistical::default();
+        let mut cost_setup = MLogistical;
         assert_eq!((cost_setup.cost(y, cache.a)).array(), 0.27977654);
     }
 }
-pub use _5::{CostSetup, MLogistical, MSquared, Y};
+pub use _5::{CostSetup, GradientDescend, MLogistical, MSquared, Optimizer, Y};
 
 /// C01W04PA01 Part 6 - Backward Propagation Module.
 pub mod _6 {
@@ -1054,7 +1050,7 @@ pub mod _6 {
             let x: X<4, 2> = dev.sample_normal();
             let y: Y<1, 2> = dev.sample_normal();
             let layers = layerc1!(dev, 1., [4, 3, 1]);
-            let mut cost_setup = MLogistical::default();
+            let mut cost_setup = MLogistical;
             let (cache_up, (cache_down, ())) = layers.clone().downward(x.clone(), &mut cost_setup);
             let (layer_up, layer_down) = layers;
             let yhat = cache_down.a.clone();
@@ -1366,7 +1362,7 @@ pub mod _6 {
             let x: X<4, 2> = dev.sample_normal();
             let y: Y<1, 2> = dev.sample_normal();
             let mut layers = layerc1!(dev, 1., [4, 3, 1]);
-            let mut cost_setup = MLogistical::default();
+            let mut cost_setup = MLogistical;
             let caches = layers.clone().downward(x.clone(), &mut cost_setup);
             let grads = layers
                 .gradients(y, &mut cost_setup, (Cache::from_a(x), caches))
@@ -1396,38 +1392,44 @@ pub mod _6 {
         use super::*;
 
         /// Recursively update the parameters.
-        pub trait UpdateParameters: Sized {
+        pub trait OptimizerUpdate: Sized {
             type Grads;
-            fn update_params<CostType>(self, grads: Self::Grads, cost_setup: &CostType) -> Self
-            where
-                CostType: CostSetup;
+            fn update_params<OptimizerType: Optimizer>(
+                self,
+                grads: Self::Grads,
+                optimizer: &OptimizerType,
+            ) -> Self;
         }
 
-        impl<const NODELEN: usize, const FEATLEN: usize, Z, A> UpdateParameters
+        impl<const NODELEN: usize, const FEATLEN: usize, Z, A> OptimizerUpdate
             for Layer<FEATLEN, NODELEN, Z, A>
         {
             type Grads = (Grads<NODELEN, FEATLEN>, ());
-            fn update_params<CostType>(self, grads: Self::Grads, cost_setup: &CostType) -> Self
+            fn update_params<OptimizerType>(
+                self,
+                grads: Self::Grads,
+                cost_setup: &OptimizerType,
+            ) -> Self
             where
-                CostType: CostSetup,
+                OptimizerType: Optimizer,
             {
                 cost_setup.update_params(self, grads.0)
             }
         }
 
-        impl<const NODELEN: usize, const FEATLEN: usize, Z, A, Lower> UpdateParameters
+        impl<const NODELEN: usize, const FEATLEN: usize, Z, A, Lower> OptimizerUpdate
             for (Layer<FEATLEN, NODELEN, Z, A>, Lower)
         where
-            Lower: UpdateParameters,
+            Lower: OptimizerUpdate,
         {
             type Grads = (Grads<NODELEN, FEATLEN>, Lower::Grads);
-            fn update_params<CostType>(
+            fn update_params<OptimizerType>(
                 mut self,
                 (grads, lower_grads): Self::Grads,
-                cost_setup: &CostType,
+                cost_setup: &OptimizerType,
             ) -> Self
             where
-                CostType: CostSetup,
+                OptimizerType: Optimizer,
             {
                 self.0 = cost_setup.update_params(self.0, grads);
                 self.1 = self.1.update_params(lower_grads, cost_setup);
@@ -1441,12 +1443,13 @@ pub mod _6 {
             let x: X<4, 2> = dev.sample_normal();
             let y: Y<1, 2> = dev.sample_normal();
             let layers = layerc1!(dev, 1., [4, 3, 1]);
-            let mut cost_setup = MLogistical::new(0.1);
+            let opt = GradientDescend::new(1e-1);
+            let mut cost_setup = MLogistical;
             let caches = layers.clone().downward(x.clone(), &mut cost_setup);
             let grads = layers
                 .clone()
                 .gradients(y, &mut cost_setup, (Cache::from_a(x), caches));
-            let layers = layers.update_params(grads.remove_mdas(), &cost_setup);
+            let layers = layers.update_params(grads.remove_mdas(), &opt);
 
             assert!(layers.0.w.array().approx(
                 [
@@ -1463,10 +1466,10 @@ pub mod _6 {
                 .approx([[-0.31857067, 0.019019742, 0.23030037,],], (1e-7, 0)));
         }
     }
-    pub use _4::UpdateParameters;
+    pub use _4::OptimizerUpdate;
 }
 pub use _6::{
-    non_zero, CleanupGrads, DownUpGrads, Dzdx, Grads, LastA, Mda, Mdz, SplitHead, UpdateParameters,
+    non_zero, CleanupGrads, DownUpGrads, Dzdx, Grads, LastA, Mda, Mdz, OptimizerUpdate, SplitHead,
     UpwardAZ, UpwardDownZUpA, UpwardJA, UpwardZwb, Wb,
 };
 

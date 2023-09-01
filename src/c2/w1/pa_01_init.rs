@@ -187,9 +187,17 @@ pub mod _2 {
         let train_y = dev.tensor(YTRAIN);
 
         let layers = layerc2!(dev, [2, 10 Zero, 5 Zero, 1 Zero]);
-        let mut cost_setup = MLogistical::new(1e-2);
+        let opt = GradientDescend::new(1e-2);
+        let mut cost_setup = MLogistical;
         // 400 training steps is enough
-        let layers = layers.train(train_x.clone(), train_y.clone(), &mut cost_setup, 400, 100);
+        let layers = layers.train(
+            train_x.clone(),
+            train_y.clone(),
+            &mut cost_setup,
+            opt,
+            400,
+            100,
+        );
         assert!(layers
             .clone()
             .cost(train_x.clone(), train_y.clone(), &mut cost_setup)
@@ -290,9 +298,17 @@ pub mod _3 {
 
         let normal10 = NormalInit(10.);
         let layers = layerc2!(dev, [2, 10 normal10, 5 normal10, 1 normal10]);
-        let mut cost_setup = MLogistical::new(1e-2);
+        let opt = GradientDescend::new(1e-2);
+        let mut cost_setup = MLogistical;
         // 400 training steps is enough
-        let layers = layers.train(train_x.clone(), train_y.clone(), &mut cost_setup, 400, 100);
+        let layers = layers.train(
+            train_x.clone(),
+            train_y.clone(),
+            &mut cost_setup,
+            opt,
+            400,
+            100,
+        );
         assert!(layers
             .clone()
             .cost(train_x.clone(), train_y.clone(), &mut cost_setup)
@@ -412,12 +428,14 @@ pub mod _4 {
 
         let he = HeInit(1.);
         let layers = layerc2!(dev, [2, 10 he, 5 he, 1 he]);
-        let mut cost_setup = MLogistical::new(1e-2);
+        let opt = GradientDescend::new(1e-2);
+        let mut cost_setup = MLogistical;
         // 400 training steps is enough
         let layers = layers.train(
             train_x.clone(),
             train_y.clone(),
             &mut cost_setup,
+            opt,
             15_000,
             1000,
         );

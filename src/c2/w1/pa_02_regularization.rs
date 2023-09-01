@@ -27,11 +27,13 @@ mod _1 {
         let train_y = dev.tensor(YTRAIN);
 
         let layers = layerc2!(dev, [2, 20 he, 3 he, 1 hes]);
-        let mut cost_setup = MLogistical::new(3e-1);
+        let opt = GradientDescend::new(3e-1);
+        let mut cost_setup = MLogistical;
         let layers = layers.train(
             train_x.clone(),
             train_y.clone(),
             &mut cost_setup,
+            opt,
             30_000,
             3000,
         );
@@ -210,15 +212,6 @@ pub mod _2 {
             Some((dw, db))
         }
 
-        fn update_params<const NODELEN: usize, const FEATLEN: usize, Z, A>(
-            &self,
-            layer: Layer<FEATLEN, NODELEN, Z, A>,
-            gradient: Grads<NODELEN, FEATLEN>,
-        ) -> Layer<FEATLEN, NODELEN, Z, A> {
-            // the wrapper has no specifics on how the parameters are updated
-            self.inner.update_params(layer, gradient)
-        }
-
         /// Resets the accumulator.
         fn refresh_cost(&mut self) {
             // reset accumulator
@@ -257,14 +250,14 @@ pub mod _2 {
         let yhat = layers
             .clone()
             // using MLogical for getting the prediction just to simulate that the prediction was a given
-            .predict(x.clone(), &mut MLogistical::default());
+            .predict(x.clone(), &mut MLogistical);
 
         // expected cost
         const COST: f32 = 1.1142612;
 
         // get the cost by calling on "layers"
         {
-            let mut cost_setup = FrobeniusReg::new(MLogistical::new(1.), 1e-1);
+            let mut cost_setup = FrobeniusReg::new(MLogistical, 1e-1);
             let cost = layers.clone().cost(x.clone(), y.clone(), &mut cost_setup);
             assert_eq!(cost, COST);
         }
@@ -272,7 +265,7 @@ pub mod _2 {
         // get the cost by calling on "cost_setup" after manually downwarding it on the layers
         {
             let layers = layers.clone().flat3();
-            let mut cost_setup = FrobeniusReg::new(MLogistical::new(1.), 1e-1);
+            let mut cost_setup = FrobeniusReg::new(MLogistical, 1e-1);
             cost_setup.refresh_cost();
             cost_setup.downward(&layers.0);
             cost_setup.downward(&layers.1);
@@ -283,7 +276,7 @@ pub mod _2 {
 
         // get the cost by calling on "cost_setup" after automatically downwarding it on the layers
         {
-            let mut cost_setup = FrobeniusReg::new(MLogistical::new(1.), 1e-1);
+            let mut cost_setup = FrobeniusReg::new(MLogistical, 1e-1);
             cost_setup.refresh_cost();
             let caches = layers.downward(x, &mut cost_setup);
             assert_eq!(yhat.array(), caches.last_a().array());
@@ -306,7 +299,7 @@ pub mod _2 {
         layers.1 .1.b = dev.sample_normal() * (2f32 / 3.).sqrt();
 
         // get caches
-        let mut cost_setup = FrobeniusReg::new(MLogistical::new(1.), 7e-1);
+        let mut cost_setup = FrobeniusReg::new(MLogistical, 7e-1);
         cost_setup.refresh_cost();
         let caches = layers.clone().downward(x.clone(), &mut cost_setup);
 
@@ -347,11 +340,13 @@ pub mod _2 {
         let train_y = dev.tensor(YTRAIN);
 
         let layers = layerc2!(dev, [2, 20 he, 3 he, 1 he2]);
-        let mut cost_setup = FrobeniusReg::new(MLogistical::new(3e-1), 7e-1);
+        let opt = GradientDescend::new(3e-1);
+        let mut cost_setup = FrobeniusReg::new(MLogistical, 7e-1);
         let layers = layers.train(
             train_x.clone(),
             train_y.clone(),
             &mut cost_setup,
+            opt,
             30_000,
             3000,
         );
@@ -363,9 +358,7 @@ pub mod _2 {
 
         // train accuracy
         {
-            let yhat = layers
-                .clone()
-                .predict(train_x.clone(), &mut MLogistical::default());
+            let yhat = layers.clone().predict(train_x.clone(), &mut MLogistical);
 
             // rounds ŷ to either 0 or 1
             let mask = yhat.ge(0.5);
@@ -381,9 +374,7 @@ pub mod _2 {
         {
             let test_x = dev.tensor(XTEST);
             let test_y = dev.tensor(YTEST);
-            let yhat = layers
-                .clone()
-                .predict(test_x.clone(), &mut MLogistical::default());
+            let yhat = layers.clone().predict(test_x.clone(), &mut MLogistical);
 
             // rounds ŷ to either 0 or 1
             let mask = yhat.ge(0.5);
@@ -577,7 +568,7 @@ pub mod _3 {
                 Linear => Sigmoid => [1 hes]
             );
 
-            let caches = layers.downward(x, &mut MLogistical::default());
+            let caches = layers.downward(x, &mut MLogistical);
             assert_eq!(
                 caches.flat4().2.a.array(),
                 [[0.0021308477, 0.5, 0.5, 0.04413341, 0.39451474]]
@@ -676,7 +667,7 @@ pub mod _3 {
                 Linear => Dropout::new(dev, ReLU, 0.8) => [3 he],
                 Linear => Sigmoid => [1 hes]
             );
-            let mut cost_setup = MLogistical::new(1.0);
+            let mut cost_setup = MLogistical;
             cost_setup.refresh_cost();
 
             // verify the dropout seeds
@@ -767,11 +758,13 @@ pub mod _3 {
                 Linear => Sigmoid => [1 he2]
             );
 
-            let mut cost_setup = MLogistical::new(3e-1);
+            let opt = GradientDescend::new(3e-1);
+            let mut cost_setup = MLogistical;
             let layers = layers.train(
                 train_x.clone(),
                 train_y.clone(),
                 &mut cost_setup,
+                opt,
                 // I've reduce the training time because the dropout impl is too slow
                 1_000,
                 100,
@@ -802,7 +795,7 @@ pub mod _3 {
             {
                 let yhat = layers_clean
                     .clone()
-                    .predict(train_x.clone(), &mut MLogistical::default());
+                    .predict(train_x.clone(), &mut MLogistical);
 
                 // rounds ŷ to either 0 or 1
                 let mask = yhat.ge(0.5);
@@ -820,7 +813,7 @@ pub mod _3 {
                 let test_y = dev.tensor(YTEST);
                 let yhat = layers_clean
                     .clone()
-                    .predict(test_x.clone(), &mut MLogistical::default());
+                    .predict(test_x.clone(), &mut MLogistical);
 
                 // rounds ŷ to either 0 or 1
                 let mask = yhat.ge(0.5);

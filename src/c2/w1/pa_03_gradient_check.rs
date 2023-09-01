@@ -76,16 +76,6 @@ impl CostSetup for MIdentity {
         let cost = self.mcost(expect, predict) / (SETLEN as f32);
         cost.sum()
     }
-
-    fn update_params<const NODELEN: usize, const FEATLEN: usize, Z, A>(
-        &self,
-        mut layer: Layer<FEATLEN, NODELEN, Z, A>,
-        gradient: Grads<NODELEN, FEATLEN>,
-    ) -> Layer<FEATLEN, NODELEN, Z, A> {
-        layer.w = layer.w - gradient.dw;
-        layer.b = layer.b - gradient.db.broadcast();
-        layer
-    }
 }
 
 impl<const NODELEN: usize, const SETLEN: usize> UpwardJA<NODELEN, SETLEN> for MIdentity {
@@ -505,7 +495,7 @@ fn gradient_checking_l() {
     let x: X<2, 3> = dev.sample_normal();
     let y = dev.sample_normal();
     let layers = layerc2!(dev, [2, 3 he, 1 hes]);
-    let mut cost_setup = MLogistical::new(1e-3);
+    let mut cost_setup = MLogistical;
     let diffs = layers.gradient_check(x, y, &mut cost_setup);
     let (diffw1, diffb1) = diffs.0;
     let (diffw2, diffb2) = diffs.1;
