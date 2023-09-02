@@ -43,7 +43,7 @@ impl<const FEATLEN: usize, const NODELEN: usize, Z> UpwardAZ<NODELEN>
     /// mdz = m * ∂J/∂z = m * ∂a/∂z * ∂J/∂a = mda
     fn upward_mdz<const SETLEN: usize>(
         &mut self,
-        _cache: Cache<NODELEN, SETLEN>,
+        _cache: Cache_<NODELEN, SETLEN>,
         mda: Mda<NODELEN, SETLEN>,
     ) -> Self::Output<SETLEN> {
         mda
@@ -96,11 +96,11 @@ fn gradient_checking_1d_1() {
     // first the dataset (one feature, one sample)
     let x = dev.tensor([[2.]]);
 
-    // then a Linear layer with a single neuron e a single feature, and also with an Idendity activation
-    let mut layer = Layer::<1, 1, Linear, Identity>::with(
+    // then a Linear_ layer with a single neuron e a single feature, and also with an Idendity activation
+    let mut layer = Layer::<1, 1, Linear_, Identity>::with(
         dev.tensor([[4.]]),
         dev.tensor([[0.]]),
-        Linear,
+        Linear_,
         Identity,
     );
     // then an "identity" cost function, which just returns the prediction
@@ -115,7 +115,7 @@ fn gradient_checking_1d_1() {
     let y = dev.zeros();
     cost_setup.refresh_cost();
     let grads = layer
-        .gradients(y, &mut cost_setup, (Cache::from_a(x), caches))
+        .gradients(y, &mut cost_setup, (Cache_::from_a(x), caches))
         .remove_mdas();
 
     // the value below is just x
@@ -179,7 +179,7 @@ where
         cost_setup.refresh_cost();
         let caches = self.downward(x.clone(), cost_setup);
         cost_setup.refresh_cost();
-        let wrap_caches = (Cache::from_a(x.clone()), caches);
+        let wrap_caches = (Cache_::from_a(x.clone()), caches);
         let grads: Grads<NODELEN, FEATLEN> = self
             .gradients(y.clone(), cost_setup, wrap_caches)
             .remove_mdas()
@@ -303,10 +303,10 @@ fn gradient_checking_1d_2() {
     let x = dev.tensor([[2.]]);
     // y value doesn't matter for MIdentity const
     let y = dev.tensor([[0.]]);
-    let layer = Layer::<1, 1, Linear, Identity>::with(
+    let layer = Layer::<1, 1, Linear_, Identity>::with(
         dev.tensor([[4.]]),
         dev.tensor([[0.]]),
-        Linear,
+        Linear_,
         Identity,
     );
     let mut cost_setup = MIdentity;
@@ -359,7 +359,7 @@ where
         let caches = self.downward(x.clone(), cost_setup);
         let first_cache = caches.0.ref_a().clone();
         cost_setup.refresh_cost();
-        let wrap_caches = (Cache::from_a(x.clone()), caches);
+        let wrap_caches = (Cache_::from_a(x.clone()), caches);
         // let grads: Grads<NODELEN, FEATLEN> = self
         let grads = self
             .gradients(y.clone(), cost_setup, wrap_caches)

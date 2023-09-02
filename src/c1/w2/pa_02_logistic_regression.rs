@@ -8,6 +8,7 @@
 //! I recommend first watching all of C1W2.
 
 use crate::helpers::_dfdx::*;
+use dfdx::prelude::*;
 
 /// C01W02PA02 Part 1 - Packages.
 mod _1 {
@@ -175,7 +176,7 @@ pub mod _4 {
         }
 
         impl<const XLEN: usize> Model<XLEN> {
-            pub fn new(device: &Device) -> Self {
+            pub fn new(device: &Device_) -> Self {
                 Self::with(device.tensor([[0.; 1]; XLEN]), device.tensor([0.]))
             }
 
@@ -461,7 +462,7 @@ pub mod _5 {
     #[cfg(feature = "cuda")]
     pub fn accuracy<YD, const YLEN: usize>(
         prediction: TensorF32<Rank2<1, YLEN>>,
-        y: Tensor<Rank2<1, YLEN>, YD, Device>,
+        y: Tensor<Rank2<1, YLEN>, YD, Device_>,
     ) -> TensorF32<Rank1<1>>
     where
         YD: dfdx::dtypes::Unit,
@@ -478,7 +479,7 @@ pub mod _5 {
     #[cfg(not(feature = "cuda"))]
     pub fn accuracy<YD, const YLEN: usize>(
         prediction: TensorF32<Rank2<1, YLEN>>,
-        y: Tensor<Rank2<1, YLEN>, YD, Device>,
+        y: Tensor<Rank2<1, YLEN>, YD, Device_>,
     ) -> TensorF32<Rank1<1>>
     where
         YD: dfdx::dtypes::Unit,

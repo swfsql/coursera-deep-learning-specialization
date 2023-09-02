@@ -1,4 +1,4 @@
-use super::{Device, Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Shape, Tensor, TensorFrom};
+use super::{Device_, Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Shape, Tensor, TensorFrom};
 use dfdx::shapes::ConstShape;
 use ndarray::{Ix0, Ix1, Ix2, Ix3, Ix4, Ix5, Ix6};
 
@@ -7,18 +7,18 @@ pub trait Hdf5Read {
         self,
         file: &hdf5::File,
         name: &str,
-    ) -> anyhow::Result<Tensor<Rank, E, Device>>
+    ) -> anyhow::Result<Tensor<Rank, E, Device_>>
     where
         E: hdf5::H5Type + dfdx::dtypes::Unit,
         Rank: ConstShape + Shape + RankToArray<{ <Rank as Shape>::NUM_DIMS }>;
 }
 
-impl Hdf5Read for &Device {
+impl Hdf5Read for &Device_ {
     fn tensor_from_hdf5<E, Rank>(
         self,
         file: &hdf5::File,
         name: &str,
-    ) -> anyhow::Result<Tensor<Rank, E, Device>>
+    ) -> anyhow::Result<Tensor<Rank, E, Device_>>
     where
         E: hdf5::H5Type + dfdx::dtypes::Unit,
         Rank: ConstShape + Shape + RankToArray<{ <Rank as Shape>::NUM_DIMS }>,

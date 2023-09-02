@@ -9,6 +9,7 @@
 //! 3b1b "Neural Networks": https://www.youtube.com/watch?v=aircAruvnKk&list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi
 
 use crate::helpers::_dfdx::*;
+use dfdx::prelude::*;
 
 /// C01W03PA01 Part 1 - Packages.
 mod _1 {
@@ -21,7 +22,7 @@ pub mod _2 {
     use crate::c1::w2::prelude::PreparedData;
     pub use crate::c1::w3::util::{M_TRAIN, X, XLEN, Y};
 
-    pub fn prepare_data(device: &Device) -> PreparedData<XLEN, M_TRAIN> {
+    pub fn prepare_data(device: &Device_) -> PreparedData<XLEN, M_TRAIN> {
         let xtrain: TensorF32<Rank2<XLEN, M_TRAIN>> = device.tensor(X);
         let ytrain: TensorU8<Rank2<1, M_TRAIN>> = device.tensor(Y);
         PreparedData {
@@ -100,7 +101,7 @@ pub mod _4 {
     /// - b1: 4 nodes (rows);
     /// - w2: 1 node (rows), 4 "features" (cols);
     /// - b2: 1 node (rows);
-    pub fn example_model(device: &Device) -> Model<2, 4, 1> {
+    pub fn example_model(device: &Device_) -> Model<2, 4, 1> {
         Model::from_values(
             device,
             [
@@ -116,7 +117,7 @@ pub mod _4 {
     }
 
     /// - 2 features (rows), 3 examples (cols);
-    pub fn example_x(device: &Device) -> TensorF32<Rank2<2, 3>> {
+    pub fn example_x(device: &Device_) -> TensorF32<Rank2<2, 3>> {
         device.tensor([
             [1.6243453, -0.6117564, -0.5281717],
             [-1.0729686, 0.86540763, -2.3015387],
@@ -124,7 +125,7 @@ pub mod _4 {
     }
 
     /// - 1 output value (rows), 3 examples (cols);
-    pub fn example_y(device: &Device) -> TensorF32<Rank2<1, 3>> {
+    pub fn example_y(device: &Device_) -> TensorF32<Rank2<1, 3>> {
         let y = device.tensor([[true, false, true]]);
         let zeros = device.zeros();
         let ones = device.ones();
@@ -155,7 +156,7 @@ pub mod _4 {
         }
 
         impl<const XLEN: usize, const L1LEN: usize, const L2LEN: usize> Model<XLEN, L1LEN, L2LEN> {
-            pub fn normal(device: &Device) -> Self {
+            pub fn normal(device: &Device_) -> Self {
                 let w1: TensorF32<Rank2<L1LEN, XLEN>> = device.sample_normal();
                 let b1: TensorF32<Rank2<L1LEN, 1>> = device.sample_normal();
                 let w2: TensorF32<Rank2<L2LEN, L1LEN>> = device.sample_normal();
@@ -171,7 +172,7 @@ pub mod _4 {
                 Self { w1, b1, w2, b2 }
             }
             pub fn from_values(
-                device: &Device,
+                device: &Device_,
                 w1: [[f32; XLEN]; L1LEN],
                 b1: [[f32; 1]; L1LEN],
                 w2: [[f32; L1LEN]; L2LEN],
@@ -286,7 +287,7 @@ pub mod _4 {
                 Self { z1, a1, z2, a2 }
             }
             pub fn from_values(
-                device: &Device,
+                device: &Device_,
                 z1: [[f32; SETLEN]; L1LEN],
                 a1: [[f32; SETLEN]; L1LEN],
                 z2: [[f32; SETLEN]; L2LEN],
@@ -403,7 +404,7 @@ pub mod _4 {
                 Self { dw1, db1, dw2, db2 }
             }
             pub fn from_values(
-                device: &Device,
+                device: &Device_,
                 dw1: [[f32; XLEN]; L1LEN],
                 db1: [[f32; 1]; L1LEN],
                 dw2: [[f32; L1LEN]; L2LEN],
@@ -588,7 +589,7 @@ pub mod _4 {
         #[cfg(feature = "cuda")]
         pub fn accuracy<YD, const L2LEN: usize, const SETLEN: usize>(
             prediction: TensorF32<Rank2<L2LEN, SETLEN>>,
-            y: Tensor<Rank2<L2LEN, SETLEN>, YD, Device>,
+            y: Tensor<Rank2<L2LEN, SETLEN>, YD, Device_>,
         ) -> TensorF32<Rank1<L2LEN>>
         where
             YD: dfdx::dtypes::Unit,
@@ -605,7 +606,7 @@ pub mod _4 {
         #[cfg(not(feature = "cuda"))]
         pub fn accuracy<YD, const L2LEN: usize, const SETLEN: usize>(
             prediction: TensorF32<Rank2<L2LEN, SETLEN>>,
-            y: Tensor<Rank2<L2LEN, SETLEN>, YD, Device>,
+            y: Tensor<Rank2<L2LEN, SETLEN>, YD, Device_>,
         ) -> TensorF32<Rank1<L2LEN>>
         where
             YD: dfdx::dtypes::Unit,

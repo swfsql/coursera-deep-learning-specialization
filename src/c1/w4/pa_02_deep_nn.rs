@@ -10,6 +10,7 @@
 
 use crate::c1::w4::pa_01_deep_nn::*;
 use crate::helpers::{Approx, _dfdx::*};
+use dfdx::prelude::*;
 
 /// C01W04PA02 Part 1 - Packages.
 mod _1 {
@@ -59,7 +60,7 @@ pub mod _4 {
                     <Self as DownUpGrads<Y_FEATURES, SETLEN>>::Cache,
                     <Self as DownUpGrads<Y_FEATURES, SETLEN>>::LowerCaches,
                 ),
-            > + DownUpGrads<Y_FEATURES, SETLEN, X = Cache<X_FEATURES, SETLEN>>,
+            > + DownUpGrads<Y_FEATURES, SETLEN, X = Cache_<X_FEATURES, SETLEN>>,
         (
             <Self as DownUpGrads<Y_FEATURES, SETLEN>>::Cache,
             <Self as DownUpGrads<Y_FEATURES, SETLEN>>::LowerCaches,
@@ -78,7 +79,7 @@ pub mod _4 {
             train_x: X<X_FEATURES, SETLEN>,
             train_y: A<Y_FEATURES, SETLEN>,
             cost_setup: &mut CostType,
-            optimizer: OptimizerType,
+            optimizer: &mut OptimizerType,
             num_iterations: usize,
             print_cost_mod: usize,
         ) -> Self
@@ -86,7 +87,7 @@ pub mod _4 {
             CostType: Clone
                 + CostSetup
                 + UpwardJA<Y_FEATURES, SETLEN, Output = TensorF32<Rank2<Y_FEATURES, SETLEN>>>,
-            OptimizerType: Optimizer,
+            OptimizerType: Optimizer_,
         {
             for i in 0..num_iterations {
                 // reset cross-training step information from the cost_setup
@@ -104,11 +105,11 @@ pub mod _4 {
                 // but a new downward pass will happen for the gradients
                 cost_setup.refresh_cost();
 
-                let wrap_caches = (Cache::from_a(train_x.clone()), caches);
+                let wrap_caches = (Cache_::from_a(train_x.clone()), caches);
                 let grads = self.gradients(train_y.clone(), cost_setup, wrap_caches);
                 let grads = grads.remove_mdas();
 
-                self = self.update_params(grads, &optimizer);
+                self = self.update_params(grads, optimizer);
             }
             self
         }
@@ -156,7 +157,7 @@ pub mod _4 {
                     <Self as DownUpGrads<Y_FEATURES, SETLEN>>::Cache,
                     <Self as DownUpGrads<Y_FEATURES, SETLEN>>::LowerCaches,
                 ),
-            > + DownUpGrads<Y_FEATURES, SETLEN, X = Cache<X_FEATURES, SETLEN>>,
+            > + DownUpGrads<Y_FEATURES, SETLEN, X = Cache_<X_FEATURES, SETLEN>>,
         (
             <Self as DownUpGrads<Y_FEATURES, SETLEN>>::Cache,
             <Self as DownUpGrads<Y_FEATURES, SETLEN>>::LowerCaches,
@@ -181,13 +182,13 @@ pub mod _4 {
         // the initial weights are different.
         // I have manually checked that they match if the initial values are the same.
         let layers = crate::layerc1!(dev, 1e-1, [12288, 7, 1]);
-        let opt = GradientDescend::new(75e-4);
+        let mut opt = GradientDescend::new(75e-4);
         let mut cost_setup = MLogistical;
         let layers = layers.train(
             train_x.clone(),
             train_y.clone(),
             &mut cost_setup,
-            opt,
+            &mut opt,
             2500,
             100,
         );
@@ -246,13 +247,13 @@ pub mod _5 {
         // the initial weights are different.
         // I have manually checked that they match if the initial values are the same.
         let layers = crate::layerc1!(dev, 1., [12288, 20, 7, 5, 1]);
-        let opt = GradientDescend::new(75e-4);
+        let mut opt = GradientDescend::new(75e-4);
         let mut cost_setup = MLogistical;
         let layers = layers.train(
             train_x.clone(),
             train_y.clone(),
             &mut cost_setup,
-            opt,
+            &mut opt,
             2500,
             100,
         );

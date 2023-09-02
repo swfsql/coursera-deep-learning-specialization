@@ -11,6 +11,7 @@
 use crate::c1::w4::prelude::*;
 use crate::c2::w1::util::pa_01::*;
 use crate::helpers::{Approx, _dfdx::*};
+use dfdx::prelude::*;
 
 /// C02W01PA01 Part 1 - Neural Network Model.
 mod _1 {
@@ -19,14 +20,14 @@ mod _1 {
     pub trait LayerInitialization: Sized {
         fn init_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
-            device: &Device,
+            device: &Device_,
             z: Z,
             a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A>;
 
         fn init_layer_wb<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
-            device: &Device,
+            device: &Device_,
         ) -> Layer<FEATLEN, NODELEN, Z, A>
         where
             Z: Default,
@@ -59,7 +60,7 @@ mod _1 {
     #[allow(unused_attributes)]
     #[macro_export]
     macro_rules! layerc2 {
-            // implicit layers creation, hidden layers are Linear>Relu, the last is Linear>Sigmoid
+            // implicit layers creation, hidden layers are Linear_>Relu, the last is Linear_>Sigmoid
             ($dev:expr, [$head_layer_node:literal, $($tail_layers_nodes:literal $tail_inits:expr),*]) => {
                 // separates the feature and forward to another macro call
                 $crate::layerc2!($dev, auto, $head_layer_node, [$($tail_layers_nodes $tail_inits),*])
@@ -76,12 +77,12 @@ mod _1 {
                 }
             };
 
-            // implicit hidden layer creation, all Linear>Relu
+            // implicit hidden layer creation, all Linear_>Relu
             ($dev:expr, auto, $node_features:literal, [$head_layer_node:literal $head_init:expr, $($tail_layers_nodes:literal $tail_inits:expr),*]) => {
                 (
                     {
                         // creates a single implicit layer
-                        let _linear = $crate::c1::w4::pa_01_deep_nn::Linear::default();
+                        let _linear = $crate::c1::w4::pa_01_deep_nn::Linear_::default();
                         let _relu = $crate::c1::w4::pa_01_deep_nn::ReLU::default();
                         $crate::layerc2!($dev, $node_features, _linear=>_relu => $head_layer_node $head_init)
                     },
@@ -100,11 +101,11 @@ mod _1 {
                 )
             };
 
-            // implicit last layer creation, Linear>Sigmoid
+            // implicit last layer creation, Linear_>Sigmoid
             ($dev:expr, auto, $node_features:literal, [$last_layer_node:literal $last_init:expr]) => {
                 {
                     // creates a single implicit layer (which is the last)
-                    let _linear = $crate::c1::w4::pa_01_deep_nn::Linear::default();
+                    let _linear = $crate::c1::w4::pa_01_deep_nn::Linear_::default();
                     let _sigmoid = $crate::c1::w4::pa_01_deep_nn::Sigmoid::default();
                     $crate::layerc2!($dev, $node_features, _linear=>_sigmoid => $last_layer_node $last_init)
                 }
@@ -144,7 +145,7 @@ pub mod _2 {
         /// Initializes w and b to zero.
         fn init_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
-            device: &Device,
+            device: &Device_,
             z: Z,
             a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A> {
@@ -187,14 +188,14 @@ pub mod _2 {
         let train_y = dev.tensor(YTRAIN);
 
         let layers = layerc2!(dev, [2, 10 Zero, 5 Zero, 1 Zero]);
-        let opt = GradientDescend::new(1e-2);
+        let mut opt = GradientDescend::new(1e-2);
         let mut cost_setup = MLogistical;
         // 400 training steps is enough
         let layers = layers.train(
             train_x.clone(),
             train_y.clone(),
             &mut cost_setup,
-            opt,
+            &mut opt,
             400,
             100,
         );
@@ -249,7 +250,7 @@ pub mod _3 {
         /// Initializes w to scaled samples from a normal distribution and initializes b to zero.
         fn init_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
-            device: &Device,
+            device: &Device_,
             z: Z,
             a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A> {
@@ -298,14 +299,14 @@ pub mod _3 {
 
         let normal10 = NormalInit(10.);
         let layers = layerc2!(dev, [2, 10 normal10, 5 normal10, 1 normal10]);
-        let opt = GradientDescend::new(1e-2);
+        let mut opt = GradientDescend::new(1e-2);
         let mut cost_setup = MLogistical;
         // 400 training steps is enough
         let layers = layers.train(
             train_x.clone(),
             train_y.clone(),
             &mut cost_setup,
-            opt,
+            &mut opt,
             400,
             100,
         );
@@ -368,7 +369,7 @@ pub mod _4 {
         /// and initializes b to zero.
         fn init_layer<const FEATLEN: usize, const NODELEN: usize, Z, A>(
             self,
-            device: &Device,
+            device: &Device_,
             z: Z,
             a: A,
         ) -> Layer<FEATLEN, NODELEN, Z, A> {
@@ -428,14 +429,14 @@ pub mod _4 {
 
         let he = HeInit(1.);
         let layers = layerc2!(dev, [2, 10 he, 5 he, 1 he]);
-        let opt = GradientDescend::new(1e-2);
+        let mut opt = GradientDescend::new(1e-2);
         let mut cost_setup = MLogistical;
         // 400 training steps is enough
         let layers = layers.train(
             train_x.clone(),
             train_y.clone(),
             &mut cost_setup,
-            opt,
+            &mut opt,
             15_000,
             1000,
         );

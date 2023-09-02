@@ -9,13 +9,49 @@
 #![allow(unused_imports)]
 
 use crate::c1::w4::prelude::*;
-use crate::c2::w1::util::pa_01::*;
+use crate::c2::w1::prelude::*;
 use crate::helpers::{Approx, _dfdx::*};
 
-/// C02W02PA01 Part 1 - Neural Network Model.
+/// C02W02PA01 Part 1 - Gradient Descent.
 mod _1 {
-    #[derive(Clone, Debug)]
-    pub struct GradientDescent {
-        pub learning_rate: f32,
+    use super::*;
+
+    #[test]
+    fn test_gradient_descent() {
+        let dev = &device();
+        let he = HeInit(1.);
+        let hes = HeInit::sigmoid();
+
+        // having some layers,
+        let mut l = layerc2!(dev, [1, 1 he, 1 he, 1 hes]);
+
+        // some gradients,
+        let mut cost_setup = MLogistical;
+        let x: X<1, 1> = dev.sample_normal();
+        let y = dev.sample_normal();
+        let caches = l.downward(x.clone(), &mut cost_setup);
+        let grads = l
+            .gradients(y, &mut cost_setup, (Cache_::from_a(x), caches))
+            .remove_mdas();
+
+        // and an optimizer,
+        let mut opt = GradientDescend::new(1.);
+
+        // then can run the update and get a layer
+        let l = l.update_params(grads, &mut opt).flat3();
+        assert_eq!(l.0.w.array(), [[1.807823,],]);
+        assert_eq!(l.0.b.array(), [[4.8961196,],]);
+        assert_eq!(l.1.w.array(), [[1.8780298,],]);
+        assert_eq!(l.1.b.array(), [[4.0334992,],]);
+        assert_eq!(l.2.w.array(), [[-2.767166,],]);
+        assert_eq!(l.2.b.array(), [[-1.6556222,],]);
     }
 }
+
+// note: Due to complexity, this is the end for this experiment!
+// (the current abstractions don't work so well!)
+//
+// It was a good experience for learning the basics and putting it all together.
+//
+// From now on it's more productive to more broadly use actual frameworks (other aspects of dfdx, etc).
+// Good learning!

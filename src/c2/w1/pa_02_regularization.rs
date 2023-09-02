@@ -27,13 +27,13 @@ mod _1 {
         let train_y = dev.tensor(YTRAIN);
 
         let layers = layerc2!(dev, [2, 20 he, 3 he, 1 hes]);
-        let opt = GradientDescend::new(3e-1);
+        let mut opt = GradientDescend::new(3e-1);
         let mut cost_setup = MLogistical;
         let layers = layers.train(
             train_x.clone(),
             train_y.clone(),
             &mut cost_setup,
-            opt,
+            &mut opt,
             30_000,
             3000,
         );
@@ -306,7 +306,7 @@ pub mod _2 {
         // get the grads values
         cost_setup.refresh_cost();
         let grads = layers
-            .gradients(y, &mut cost_setup, (Cache::from_a(x), caches))
+            .gradients(y, &mut cost_setup, (Cache_::from_a(x), caches))
             .remove_mdas()
             .flat4();
         assert_eq!(
@@ -340,13 +340,13 @@ pub mod _2 {
         let train_y = dev.tensor(YTRAIN);
 
         let layers = layerc2!(dev, [2, 20 he, 3 he, 1 he2]);
-        let opt = GradientDescend::new(3e-1);
+        let mut opt = GradientDescend::new(3e-1);
         let mut cost_setup = FrobeniusReg::new(MLogistical, 7e-1);
         let layers = layers.train(
             train_x.clone(),
             train_y.clone(),
             &mut cost_setup,
-            opt,
+            &mut opt,
             30_000,
             3000,
         );
@@ -476,7 +476,7 @@ pub mod _3 {
                 }
             }
 
-            pub fn new(device: &Device, inner: Inner, keep_prob: f32) -> Self {
+            pub fn new(device: &Device_, inner: Inner, keep_prob: f32) -> Self {
                 let seed: TensorF32<Rank0> = device.sample_uniform();
                 let seed = seed.array() * (u64::MAX as f32);
                 Self {
@@ -563,9 +563,9 @@ pub mod _3 {
             let mut layers = layerc2!(
                 dev,
                 3,
-                Linear => Dropout::new(dev, ReLU, 0.7) => [2 he],
-                Linear => Dropout::new(dev, ReLU, 0.7) => [3 he],
-                Linear => Sigmoid => [1 hes]
+                Linear_ => Dropout::new(dev, ReLU, 0.7) => [2 he],
+                Linear_ => Dropout::new(dev, ReLU, 0.7) => [3 he],
+                Linear_ => Sigmoid => [1 hes]
             );
 
             let caches = layers.downward(x, &mut MLogistical);
@@ -605,7 +605,7 @@ pub mod _3 {
             /// - The keep_mask must have been set before this upward pass.
             fn upward_mdz<const SETLEN: usize>(
                 &mut self,
-                dropout_cache: Cache<NODELEN, SETLEN>,
+                dropout_cache: Cache_<NODELEN, SETLEN>,
                 mda: Mda<NODELEN, SETLEN>,
             ) -> Self::Output<SETLEN> {
                 let dev = self.w.device();
@@ -663,9 +663,9 @@ pub mod _3 {
             let mut layers = layerc2!(
                 dev,
                 3,
-                Linear => Dropout::new(dev, ReLU, 0.8) => [2 he],
-                Linear => Dropout::new(dev, ReLU, 0.8) => [3 he],
-                Linear => Sigmoid => [1 hes]
+                Linear_ => Dropout::new(dev, ReLU, 0.8) => [2 he],
+                Linear_ => Dropout::new(dev, ReLU, 0.8) => [3 he],
+                Linear_ => Sigmoid => [1 hes]
             );
             let mut cost_setup = MLogistical;
             cost_setup.refresh_cost();
@@ -688,7 +688,7 @@ pub mod _3 {
                 .gradients(
                     y.clone(),
                     &mut cost_setup,
-                    (Cache::from_a(x.clone()), caches),
+                    (Cache_::from_a(x.clone()), caches),
                 )
                 .remove_mdas()
                 .flat4();
@@ -731,7 +731,7 @@ pub mod _3 {
             cost_setup.refresh_cost();
             let _grads = layers
                 .clone()
-                .gradients(y, &mut cost_setup, (Cache::from_a(x), caches))
+                .gradients(y, &mut cost_setup, (Cache_::from_a(x), caches))
                 .remove_mdas()
                 .flat4();
 
@@ -753,18 +753,18 @@ pub mod _3 {
             let layers = layerc2!(
                 dev,
                 2,
-                Linear => Dropout::new(dev, ReLU, 0.86) => [20 he],
-                Linear => Dropout::new(dev, ReLU, 0.86) => [3 he],
-                Linear => Sigmoid => [1 he2]
+                Linear_ => Dropout::new(dev, ReLU, 0.86) => [20 he],
+                Linear_ => Dropout::new(dev, ReLU, 0.86) => [3 he],
+                Linear_ => Sigmoid => [1 he2]
             );
 
-            let opt = GradientDescend::new(3e-1);
+            let mut opt = GradientDescend::new(3e-1);
             let mut cost_setup = MLogistical;
             let layers = layers.train(
                 train_x.clone(),
                 train_y.clone(),
                 &mut cost_setup,
-                opt,
+                &mut opt,
                 // I've reduce the training time because the dropout impl is too slow
                 1_000,
                 100,
@@ -779,9 +779,9 @@ pub mod _3 {
             let mut layers_clean = layerc2!(
                 dev,
                 2,
-                Linear => ReLU => [20 he],
-                Linear => ReLU => [3 he],
-                Linear => Sigmoid => [1 he2]
+                Linear_ => ReLU => [20 he],
+                Linear_ => ReLU => [3 he],
+                Linear_ => Sigmoid => [1 he2]
             );
 
             layers_clean.0.w = layers.0.w;

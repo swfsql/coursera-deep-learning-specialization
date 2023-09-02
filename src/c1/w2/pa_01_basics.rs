@@ -5,6 +5,7 @@
 //! I recommend first watching all of C1W2.
 
 use crate::helpers::_dfdx::*;
+use dfdx::prelude::*;
 
 /// C01W02PA01 Part 1 - Building Basic Functions.
 pub mod _1 {
